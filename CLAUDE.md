@@ -1,6 +1,6 @@
-# HomeButler Development Guide
+# Jeeves Development Guide
 
-HomeButler is a Home Assistant control app for jailbroken iOS devices (targets iOS 9.3.5).
+Jeeves is a Home Assistant control app for jailbroken iOS devices (targets iOS 9.3.5).
 
 ## Build Systems
 
@@ -10,8 +10,8 @@ This project uses **two build systems** that must be kept in sync:
 2. **Xcode** - For code editing, IDE features, and simulator testing
 
 When adding new files, update BOTH:
-- `Makefile` - Add `.m` files to `HomeButler_FILES`
-- `HomeButler.xcodeproj/project.pbxproj` - Add file references and build phases
+- `Makefile` - Add `.m` files to `Jeeves_FILES`
+- `Jeeves.xcodeproj/project.pbxproj` - Add file references and build phases
 
 ## Deploying to Device
 
@@ -41,13 +41,20 @@ ssh root@<DEVICE_IP>
 
 ```bash
 ssh root@<DEVICE_IP>
-tail -f /var/log/syslog | grep HomeButler
+tail -f /var/log/syslog | grep Jeeves
 ```
+
+`/var/log/syslog` only exists if a syslog-to-file package is installed on the device.
 
 Crash logs:
 ```bash
 ls -la /var/mobile/Library/Logs/CrashReporter/
-cat /var/mobile/Library/Logs/CrashReporter/HomeButler-*.ips
+cat /var/mobile/Library/Logs/CrashReporter/Jeeves-*.ips
+```
+
+iOS 9 crash reports don't include the exception message, so the app records the last uncaught exception (name, reason and symbolicated call stack) itself:
+```bash
+cat /var/mobile/Library/Logs/Jeeves-exception.log
 ```
 
 ## Building
@@ -57,14 +64,14 @@ cat /var/mobile/Library/Logs/CrashReporter/HomeButler-*.ips
 make clean && make package FINALPACKAGE=1
 ```
 
-Output: `packages/com.homebutler.app_X.X.X_iphoneos-arm.deb`
+Output: `packages/com.jeeves.app_X.X.X_iphoneos-arm.deb`
 
 ### IPA (for distribution)
 ```bash
 ./build_ipa.sh
 ```
 
-Output: `HomeButler.ipa`
+Output: `Jeeves.ipa`
 
 ## Architecture
 
@@ -109,16 +116,24 @@ Key methods:
 - `createDropPlaceholderWithFrame:` - Visual feedback
 - `updateDropPlaceholderToIndex:` - Position updates
 
+### Card Customization
+
+Each card can be renamed and resized per dashboard (Home or a room) from the "Card" section of the more-info screen (long-press a card). Settings live in `JeevesCardSettings`, keyed by dashboard ID (`JeevesHomeDashboardID` or the room's `roomId`) and entity ID; the entity isn't renamed in Home Assistant.
+
+- **Sizes**: X-Small 1×½, Small 1×1, Wide 2×1, Tall 1×2, Large 2×2 cells. Rows are packed in half-row units (Small = 2 half-rows), so two X-Small cards stack in one Small slot. `JeevesCardSize` raw values are persisted — append new sizes, and use `+orderedSizes` for display order
+- **Short cards**: Home cards under 76pt tall switch to a single-row layout (name, value, effect button); room cards under 110pt use a one-line name and smaller status
+- **Layout**: cards are packed first-fit in order (`+[JeevesCardSettings packSpans:columns:rowCount:]`) — by hand on Home, via `JeevesGridLayout` in rooms
+
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `AppDelegate.m` | Entry point, loads HBDashboardViewController |
-| `HBDashboardViewController.h/m` | Main dashboard (Home/Rooms tabs, weather, entities) |
-| `HBRoom.h/m` | Room model + HBRoomManager singleton |
-| `HBRoomDetailViewController.h/m` | Individual room view |
-| `HBLightToggleCell.h/m` | Entity card (tap-toggle, brightness drag) |
-| `HBThemeManager.h/m` | Centralized theming |
+| `AppDelegate.m` | Entry point, loads JeevesDashboardViewController |
+| `JeevesDashboardViewController.h/m` | Main dashboard (Home/Rooms tabs, weather, entities) |
+| `JeevesRoom.h/m` | Room model + JeevesRoomManager singleton |
+| `JeevesRoomDetailViewController.h/m` | Individual room view |
+| `JeevesLightToggleCell.h/m` | Entity card (tap-toggle, brightness drag) |
+| `JeevesThemeManager.h/m` | Centralized theming |
 | `HAAPIClient.h/m` | Home Assistant REST API client |
 | `HAEntity.h/m` | Entity model |
 
@@ -137,12 +152,16 @@ All requests use Bearer token authentication.
 
 ## Theming
 
-Colors defined in `HBThemeManager`:
+Colors defined in `JeevesThemeManager`:
 - `backgroundColor` - Main background
 - `cardBackgroundColor` - Entity cards
 - `textColor` / `secondaryTextColor` - Text
 - `onColor` - Active state (golden yellow)
 - `offColor` - Inactive state
+
+## iOS 9 UIStackView Pitfall
+
+On iOS 9, a `UIStackView` with a non-default `alignment` (center, leading, …) or an `EqualSpacing`/`EqualCentering` distribution crashes when it's deallocated: `-[_UILayoutSpacer _didRemoveDependentConstraint:]: unrecognized selector` (fixed in iOS 10). Only use stack views with the default `Fill` alignment and `Fill`/`FillEqually` distribution; build anything else with plain constraints or frames (see `rowWithTitle:control:` in `JeevesEntityMoreInfoViewController` and `JeevesSwatchRowView`).
 
 ## Modal Presentation
 

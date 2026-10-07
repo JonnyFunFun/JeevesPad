@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# HomeButler Build and Deploy Script
+# Jeeves Build and Deploy Script
 # Usage: ./build-and-deploy.sh
 
 set -e
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_NAME="HomeButler"
-SCHEME="HomeButler"
+PROJECT_NAME="Jeeves"
+SCHEME="Jeeves"
 CONFIGURATION="Debug"
 BUILD_DIR="$PROJECT_DIR/build"
 

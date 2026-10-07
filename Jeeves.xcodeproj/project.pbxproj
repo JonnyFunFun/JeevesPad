@@ -1,0 +1,590 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 50;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0001 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 1001; };
+		0002 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 1002; };
+		0003 /* HAEntity.m in Sources */ = {isa = PBXBuildFile; fileRef = 1003; };
+		0004 /* JeevesRoom.m in Sources */ = {isa = PBXBuildFile; fileRef = 1004; };
+		0005 /* HAAPIClient.m in Sources */ = {isa = PBXBuildFile; fileRef = 1005; };
+		0006 /* JeevesThemeManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 1006; };
+		0007 /* JeevesDashboardViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1007; };
+		0008 /* JeevesAddRoomViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1008; };
+		0009 /* SettingsViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1009; };
+		0010 /* JeevesRoomDetailViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1010; };
+		0011 /* DashboardViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1011; };
+		0012 /* CameraViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1012; };
+		0013 /* LightControlViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1013; };
+		0014 /* JeevesLightToggleCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 1014; };
+		0015 /* JeevesRoomCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 1015; };
+		0016 /* EntityCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 1016; };
+		0019 /* JeevesIconView.m in Sources */ = {isa = PBXBuildFile; fileRef = 1017; };
+		0020 /* JeevesActionButton.m in Sources */ = {isa = PBXBuildFile; fileRef = 1018; };
+		0021 /* JeevesBatteryReporter.m in Sources */ = {isa = PBXBuildFile; fileRef = 1019; };
+		0022 /* JeevesJellyfinItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 1020; };
+		0023 /* JeevesJellyfinTarget.m in Sources */ = {isa = PBXBuildFile; fileRef = 1021; };
+		0024 /* JeevesJellyfinStream.m in Sources */ = {isa = PBXBuildFile; fileRef = 1022; };
+		0025 /* JeevesJellyfinSession.m in Sources */ = {isa = PBXBuildFile; fileRef = 1023; };
+		0026 /* JeevesJellyfinClient.m in Sources */ = {isa = PBXBuildFile; fileRef = 1024; };
+		0027 /* UIViewController+JeevesRefresh.m in Sources */ = {isa = PBXBuildFile; fileRef = 1026; };
+		0028 /* JeevesJellyfinMediaCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 1027; };
+		0029 /* JeevesJellyfinRowView.m in Sources */ = {isa = PBXBuildFile; fileRef = 1028; };
+		0030 /* JeevesJellyfinNowPlayingPill.m in Sources */ = {isa = PBXBuildFile; fileRef = 1029; };
+		0031 /* JeevesJellyfinViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1030; };
+		0032 /* JeevesJellyfinLibraryViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1031; };
+		0033 /* JeevesJellyfinShowViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1032; };
+		0034 /* JeevesJellyfinDetailViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1033; };
+		0035 /* JeevesJellyfinSearchViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1034; };
+		0036 /* JeevesJellyfinNowPlayingViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1035; };
+		0037 /* JeevesEntityMoreInfoViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1036; };
+		0038 /* JeevesLightControlsView.m in Sources */ = {isa = PBXBuildFile; fileRef = 1037; };
+		0040 /* JeevesGridLayout.m in Sources */ = {isa = PBXBuildFile; fileRef = 1039; };
+		0039 /* JeevesCardSettings.m in Sources */ = {isa = PBXBuildFile; fileRef = 1038; };
+		0017 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2001; };
+		0018 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 2002; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		1001 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		1002 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
+		1002H /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
+		1003 /* HAEntity.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HAEntity.m; sourceTree = "<group>"; };
+		1003H /* HAEntity.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HAEntity.h; sourceTree = "<group>"; };
+		1004 /* JeevesRoom.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesRoom.m; sourceTree = "<group>"; };
+		1004H /* JeevesRoom.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesRoom.h; sourceTree = "<group>"; };
+		1005 /* HAAPIClient.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HAAPIClient.m; sourceTree = "<group>"; };
+		1005H /* HAAPIClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HAAPIClient.h; sourceTree = "<group>"; };
+		1006 /* JeevesThemeManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesThemeManager.m; sourceTree = "<group>"; };
+		1006H /* JeevesThemeManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesThemeManager.h; sourceTree = "<group>"; };
+		1007 /* JeevesDashboardViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesDashboardViewController.m; sourceTree = "<group>"; };
+		1007H /* JeevesDashboardViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesDashboardViewController.h; sourceTree = "<group>"; };
+		1008 /* JeevesAddRoomViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesAddRoomViewController.m; sourceTree = "<group>"; };
+		1008H /* JeevesAddRoomViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesAddRoomViewController.h; sourceTree = "<group>"; };
+		1009 /* SettingsViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SettingsViewController.m; sourceTree = "<group>"; };
+		1009H /* SettingsViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SettingsViewController.h; sourceTree = "<group>"; };
+		1010 /* JeevesRoomDetailViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesRoomDetailViewController.m; sourceTree = "<group>"; };
+		1010H /* JeevesRoomDetailViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesRoomDetailViewController.h; sourceTree = "<group>"; };
+		1011 /* DashboardViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = DashboardViewController.m; sourceTree = "<group>"; };
+		1011H /* DashboardViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DashboardViewController.h; sourceTree = "<group>"; };
+		1012 /* CameraViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CameraViewController.m; sourceTree = "<group>"; };
+		1012H /* CameraViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CameraViewController.h; sourceTree = "<group>"; };
+		1013 /* LightControlViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LightControlViewController.m; sourceTree = "<group>"; };
+		1013H /* LightControlViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LightControlViewController.h; sourceTree = "<group>"; };
+		1014 /* JeevesLightToggleCell.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesLightToggleCell.m; sourceTree = "<group>"; };
+		1014H /* JeevesLightToggleCell.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesLightToggleCell.h; sourceTree = "<group>"; };
+		1015 /* JeevesRoomCell.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesRoomCell.m; sourceTree = "<group>"; };
+		1015H /* JeevesRoomCell.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesRoomCell.h; sourceTree = "<group>"; };
+		1016 /* EntityCell.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EntityCell.m; sourceTree = "<group>"; };
+		1016H /* EntityCell.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EntityCell.h; sourceTree = "<group>"; };
+		1017 /* JeevesIconView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesIconView.m; sourceTree = "<group>"; };
+		1017H /* JeevesIconView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesIconView.h; sourceTree = "<group>"; };
+		1018 /* JeevesActionButton.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesActionButton.m; sourceTree = "<group>"; };
+		1018H /* JeevesActionButton.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesActionButton.h; sourceTree = "<group>"; };
+		1019 /* JeevesBatteryReporter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesBatteryReporter.m; sourceTree = "<group>"; };
+		1019H /* JeevesBatteryReporter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesBatteryReporter.h; sourceTree = "<group>"; };
+		1020 /* JeevesJellyfinItem.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesJellyfinItem.m; sourceTree = "<group>"; };
+		1020H /* JeevesJellyfinItem.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesJellyfinItem.h; sourceTree = "<group>"; };
+		1021 /* JeevesJellyfinTarget.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesJellyfinTarget.m; sourceTree = "<group>"; };
+		1021H /* JeevesJellyfinTarget.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesJellyfinTarget.h; sourceTree = "<group>"; };
+		1022 /* JeevesJellyfinStream.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesJellyfinStream.m; sourceTree = "<group>"; };
+		1022H /* JeevesJellyfinStream.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesJellyfinStream.h; sourceTree = "<group>"; };
+		1023 /* JeevesJellyfinSession.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesJellyfinSession.m; sourceTree = "<group>"; };
+		1023H /* JeevesJellyfinSession.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesJellyfinSession.h; sourceTree = "<group>"; };
+		1024 /* JeevesJellyfinClient.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesJellyfinClient.m; sourceTree = "<group>"; };
+		1024H /* JeevesJellyfinClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesJellyfinClient.h; sourceTree = "<group>"; };
+		1025H /* JeevesRefreshable.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesRefreshable.h; sourceTree = "<group>"; };
+		1026 /* UIViewController+JeevesRefresh.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "UIViewController+JeevesRefresh.m"; sourceTree = "<group>"; };
+		1026H /* UIViewController+JeevesRefresh.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "UIViewController+JeevesRefresh.h"; sourceTree = "<group>"; };
+		1027 /* JeevesJellyfinMediaCell.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesJellyfinMediaCell.m; sourceTree = "<group>"; };
+		1027H /* JeevesJellyfinMediaCell.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesJellyfinMediaCell.h; sourceTree = "<group>"; };
+		1028 /* JeevesJellyfinRowView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesJellyfinRowView.m; sourceTree = "<group>"; };
+		1028H /* JeevesJellyfinRowView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesJellyfinRowView.h; sourceTree = "<group>"; };
+		1029 /* JeevesJellyfinNowPlayingPill.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesJellyfinNowPlayingPill.m; sourceTree = "<group>"; };
+		1029H /* JeevesJellyfinNowPlayingPill.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesJellyfinNowPlayingPill.h; sourceTree = "<group>"; };
+		1030 /* JeevesJellyfinViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesJellyfinViewController.m; sourceTree = "<group>"; };
+		1030H /* JeevesJellyfinViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesJellyfinViewController.h; sourceTree = "<group>"; };
+		1031 /* JeevesJellyfinLibraryViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesJellyfinLibraryViewController.m; sourceTree = "<group>"; };
+		1031H /* JeevesJellyfinLibraryViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesJellyfinLibraryViewController.h; sourceTree = "<group>"; };
+		1032 /* JeevesJellyfinShowViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesJellyfinShowViewController.m; sourceTree = "<group>"; };
+		1032H /* JeevesJellyfinShowViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesJellyfinShowViewController.h; sourceTree = "<group>"; };
+		1033 /* JeevesJellyfinDetailViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesJellyfinDetailViewController.m; sourceTree = "<group>"; };
+		1033H /* JeevesJellyfinDetailViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesJellyfinDetailViewController.h; sourceTree = "<group>"; };
+		1034 /* JeevesJellyfinSearchViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesJellyfinSearchViewController.m; sourceTree = "<group>"; };
+		1034H /* JeevesJellyfinSearchViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesJellyfinSearchViewController.h; sourceTree = "<group>"; };
+		1035 /* JeevesJellyfinNowPlayingViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesJellyfinNowPlayingViewController.m; sourceTree = "<group>"; };
+		1035H /* JeevesJellyfinNowPlayingViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesJellyfinNowPlayingViewController.h; sourceTree = "<group>"; };
+		1036 /* JeevesEntityMoreInfoViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesEntityMoreInfoViewController.m; sourceTree = "<group>"; };
+		1036H /* JeevesEntityMoreInfoViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesEntityMoreInfoViewController.h; sourceTree = "<group>"; };
+		1037 /* JeevesLightControlsView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesLightControlsView.m; sourceTree = "<group>"; };
+		1037H /* JeevesLightControlsView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesLightControlsView.h; sourceTree = "<group>"; };
+		1039 /* JeevesGridLayout.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesGridLayout.m; sourceTree = "<group>"; };
+		1039H /* JeevesGridLayout.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesGridLayout.h; sourceTree = "<group>"; };
+		1038 /* JeevesCardSettings.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesCardSettings.m; sourceTree = "<group>"; };
+		1038H /* JeevesCardSettings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesCardSettings.h; sourceTree = "<group>"; };
+		2001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		2002 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		2003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		3001 /* Jeeves.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Jeeves.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FRAMEWORKS /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		ROOT = {
+			isa = PBXGroup;
+			children = (
+				SRCGROUP /* Jeeves */,
+				PRODUCTS /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		PRODUCTS /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				3001 /* Jeeves.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		SRCGROUP /* Jeeves */ = {
+			isa = PBXGroup;
+			children = (
+				1001 /* main.m */,
+				1002 /* AppDelegate.m */,
+				1002H /* AppDelegate.h */,
+				MODELS /* Models */,
+				API /* API */,
+				HELPERS /* Helpers */,
+				THEME /* Theme */,
+				VIEWCONTROLLERS /* ViewControllers */,
+				VIEWS /* Views */,
+				2001 /* Assets.xcassets */,
+				2002 /* LaunchScreen.storyboard */,
+				2003 /* Info.plist */,
+			);
+			path = Jeeves;
+			sourceTree = "<group>";
+		};
+		MODELS /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				1003 /* HAEntity.m */,
+				1003H /* HAEntity.h */,
+				1004 /* JeevesRoom.m */,
+				1004H /* JeevesRoom.h */,
+				1038 /* JeevesCardSettings.m */,
+				1038H /* JeevesCardSettings.h */,
+				1020 /* JeevesJellyfinItem.m */,
+				1020H /* JeevesJellyfinItem.h */,
+				1021 /* JeevesJellyfinTarget.m */,
+				1021H /* JeevesJellyfinTarget.h */,
+				1022 /* JeevesJellyfinStream.m */,
+				1022H /* JeevesJellyfinStream.h */,
+				1023 /* JeevesJellyfinSession.m */,
+				1023H /* JeevesJellyfinSession.h */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		API /* API */ = {
+			isa = PBXGroup;
+			children = (
+				1005 /* HAAPIClient.m */,
+				1005H /* HAAPIClient.h */,
+				1019 /* JeevesBatteryReporter.m */,
+				1019H /* JeevesBatteryReporter.h */,
+				1024 /* JeevesJellyfinClient.m */,
+				1024H /* JeevesJellyfinClient.h */,
+			);
+			path = API;
+			sourceTree = "<group>";
+		};
+		HELPERS /* Helpers */ = {
+			isa = PBXGroup;
+			children = (
+				1025H /* JeevesRefreshable.h */,
+				1026 /* UIViewController+JeevesRefresh.m */,
+				1026H /* UIViewController+JeevesRefresh.h */,
+			);
+			path = Helpers;
+			sourceTree = "<group>";
+		};
+		THEME /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				1006 /* JeevesThemeManager.m */,
+				1006H /* JeevesThemeManager.h */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		VIEWCONTROLLERS /* ViewControllers */ = {
+			isa = PBXGroup;
+			children = (
+				1007 /* JeevesDashboardViewController.m */,
+				1007H /* JeevesDashboardViewController.h */,
+				1008 /* JeevesAddRoomViewController.m */,
+				1008H /* JeevesAddRoomViewController.h */,
+				1009 /* SettingsViewController.m */,
+				1009H /* SettingsViewController.h */,
+				1010 /* JeevesRoomDetailViewController.m */,
+				1010H /* JeevesRoomDetailViewController.h */,
+				1011 /* DashboardViewController.m */,
+				1011H /* DashboardViewController.h */,
+				1012 /* CameraViewController.m */,
+				1012H /* CameraViewController.h */,
+				1013 /* LightControlViewController.m */,
+				1013H /* LightControlViewController.h */,
+				1030 /* JeevesJellyfinViewController.m */,
+				1030H /* JeevesJellyfinViewController.h */,
+				1031 /* JeevesJellyfinLibraryViewController.m */,
+				1031H /* JeevesJellyfinLibraryViewController.h */,
+				1032 /* JeevesJellyfinShowViewController.m */,
+				1032H /* JeevesJellyfinShowViewController.h */,
+				1033 /* JeevesJellyfinDetailViewController.m */,
+				1033H /* JeevesJellyfinDetailViewController.h */,
+				1034 /* JeevesJellyfinSearchViewController.m */,
+				1034H /* JeevesJellyfinSearchViewController.h */,
+				1035 /* JeevesJellyfinNowPlayingViewController.m */,
+				1035H /* JeevesJellyfinNowPlayingViewController.h */,
+				1036 /* JeevesEntityMoreInfoViewController.m */,
+				1036H /* JeevesEntityMoreInfoViewController.h */,
+			);
+			path = ViewControllers;
+			sourceTree = "<group>";
+		};
+		VIEWS /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				1014 /* JeevesLightToggleCell.m */,
+				1014H /* JeevesLightToggleCell.h */,
+				1015 /* JeevesRoomCell.m */,
+				1015H /* JeevesRoomCell.h */,
+				1016 /* EntityCell.m */,
+				1016H /* EntityCell.h */,
+				1017 /* JeevesIconView.m */,
+				1017H /* JeevesIconView.h */,
+				1018 /* JeevesActionButton.m */,
+				1018H /* JeevesActionButton.h */,
+				1027 /* JeevesJellyfinMediaCell.m */,
+				1027H /* JeevesJellyfinMediaCell.h */,
+				1028 /* JeevesJellyfinRowView.m */,
+				1028H /* JeevesJellyfinRowView.h */,
+				1029 /* JeevesJellyfinNowPlayingPill.m */,
+				1029H /* JeevesJellyfinNowPlayingPill.h */,
+				1037 /* JeevesLightControlsView.m */,
+				1037H /* JeevesLightControlsView.h */,
+				1039 /* JeevesGridLayout.m */,
+				1039H /* JeevesGridLayout.h */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		TARGET /* Jeeves */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = TARGETCONFIGS;
+			buildPhases = (
+				SOURCES /* Sources */,
+				FRAMEWORKS /* Frameworks */,
+				RESOURCES /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Jeeves;
+			productName = Jeeves;
+			productReference = 3001 /* Jeeves.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		PROJECT = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					TARGET = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = PROJECTCONFIGS;
+			compatibilityVersion = "Xcode 9.3";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = ROOT;
+			productRefGroup = PRODUCTS /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				TARGET /* Jeeves */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		RESOURCES /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0017 /* Assets.xcassets in Resources */,
+				0018 /* LaunchScreen.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		SOURCES /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0001 /* main.m in Sources */,
+				0002 /* AppDelegate.m in Sources */,
+				0003 /* HAEntity.m in Sources */,
+				0004 /* JeevesRoom.m in Sources */,
+				0005 /* HAAPIClient.m in Sources */,
+				0006 /* JeevesThemeManager.m in Sources */,
+				0007 /* JeevesDashboardViewController.m in Sources */,
+				0008 /* JeevesAddRoomViewController.m in Sources */,
+				0009 /* SettingsViewController.m in Sources */,
+				0010 /* JeevesRoomDetailViewController.m in Sources */,
+				0011 /* DashboardViewController.m in Sources */,
+				0012 /* CameraViewController.m in Sources */,
+				0013 /* LightControlViewController.m in Sources */,
+				0014 /* JeevesLightToggleCell.m in Sources */,
+				0015 /* JeevesRoomCell.m in Sources */,
+				0016 /* EntityCell.m in Sources */,
+				0019 /* JeevesIconView.m in Sources */,
+				0020 /* JeevesActionButton.m in Sources */,
+				0021 /* JeevesBatteryReporter.m in Sources */,
+				0022 /* JeevesJellyfinItem.m in Sources */,
+				0023 /* JeevesJellyfinTarget.m in Sources */,
+				0024 /* JeevesJellyfinStream.m in Sources */,
+				0025 /* JeevesJellyfinSession.m in Sources */,
+				0026 /* JeevesJellyfinClient.m in Sources */,
+				0027 /* UIViewController+JeevesRefresh.m in Sources */,
+				0028 /* JeevesJellyfinMediaCell.m in Sources */,
+				0029 /* JeevesJellyfinRowView.m in Sources */,
+				0030 /* JeevesJellyfinNowPlayingPill.m in Sources */,
+				0031 /* JeevesJellyfinViewController.m in Sources */,
+				0032 /* JeevesJellyfinLibraryViewController.m in Sources */,
+				0033 /* JeevesJellyfinShowViewController.m in Sources */,
+				0034 /* JeevesJellyfinDetailViewController.m in Sources */,
+				0035 /* JeevesJellyfinSearchViewController.m in Sources */,
+				0036 /* JeevesJellyfinNowPlayingViewController.m in Sources */,
+				0037 /* JeevesEntityMoreInfoViewController.m in Sources */,
+				0038 /* JeevesLightControlsView.m in Sources */,
+				0040 /* JeevesGridLayout.m in Sources */,
+				0039 /* JeevesCardSettings.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		DEBUGPROJECT /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+			};
+			name = Debug;
+		};
+		RELEASEPROJECT /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		DEBUGTARGET /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Jeeves/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jeeves.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		RELEASETARGET /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Jeeves/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jeeves.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		PROJECTCONFIGS /* Build configuration list for PBXProject "Jeeves" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DEBUGPROJECT /* Debug */,
+				RELEASEPROJECT /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		TARGETCONFIGS /* Build configuration list for PBXNativeTarget "Jeeves" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DEBUGTARGET /* Debug */,
+				RELEASETARGET /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = PROJECT;
+}

@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>application-identifier</key>
-	<string>com.homebutler.HomeButler</string>
+	<string>com.jeeves.Jeeves</string>
 	<key>get-task-allow</key>
 	<true/>
 </dict>

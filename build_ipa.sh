@@ -1,16 +1,16 @@
 #!/bin/bash
-# Build script for HomeButler - creates IPA for jailbroken devices
+# Build script for Jeeves - creates IPA for jailbroken devices
 
 set -e
 
-echo "Building HomeButler..."
+echo "Building Jeeves..."
 make clean
 make
 
-APP_PATH=".theos/obj/debug/HomeButler.app"
+APP_PATH=".theos/obj/debug/Jeeves.app"
 
 echo "Signing with ldid..."
-ldid -Sentitlements.plist "$APP_PATH/HomeButler"
+ldid -Sentitlements.plist "$APP_PATH/Jeeves"
 
 echo "Copying resources..."
 cp -r Resources/* "$APP_PATH/" 2>/dev/null || true
@@ -19,14 +19,14 @@ echo "Creating IPA..."
 rm -rf Payload
 mkdir -p Payload
 cp -r "$APP_PATH" Payload/
-rm -f HomeButler.ipa
-zip -r HomeButler.ipa Payload
+rm -f Jeeves.ipa
+zip -r Jeeves.ipa Payload
 
 echo "Cleaning up..."
 rm -rf Payload
 
 echo ""
-echo "Done! HomeButler.ipa created."
+echo "Done! Jeeves.ipa created."
 echo ""
 echo "To install on jailbroken iPad with AppSync Unified:"
 echo "  Option 1: Use Filza to install the IPA"

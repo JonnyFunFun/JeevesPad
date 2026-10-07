@@ -1,8 +1,8 @@
-Package: com.homebutler.app
-Name: HomeButler
+Package: com.jeeves.app
+Name: Jeeves
 Version: 1.0.0
 Architecture: iphoneos-arm
 Description: Home Assistant control app for iPad
-Maintainer: HomeButler
-Author: HomeButler
+Maintainer: Jeeves
+Author: Jeeves
 Section: Applications
