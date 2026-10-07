@@ -1,6 +1,8 @@
 # Jeeves
 
-A native iOS app for controlling Home Assistant, designed for jailbroken devices running iOS 9 — so an old iPad can live on as a wall-mounted smart home panel. Named after P.G. Wodehouse's gentleman's personal gentleman, who always knew just what was wanted. (Formerly *HomeButler*.)
+A native iOS app for controlling Home Assistant, designed for jailbroken devices running iOS 9 — so an old iPad can live on as a wall-mounted smart home panel. Named after P.G. Wodehouse's gentleman's personal gentleman, who always knew just what was wanted.
+
+**Repository:** [github.com/JonnyFunFun/JeevesPad](https://github.com/JonnyFunFun/JeevesPad) · [Issues](https://github.com/JonnyFunFun/JeevesPad/issues)
 
 https://github.com/user-attachments/assets/7f0fc34f-93f5-4bdb-b7bc-e2405993784f
 
@@ -8,6 +10,19 @@ https://github.com/user-attachments/assets/7f0fc34f-93f5-4bdb-b7bc-e2405993784f
 ![Objective-C](https://img.shields.io/badge/language-Objective--C-orange)
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-REST%20API-41BDF5)
 ![Jellyfin](https://img.shields.io/badge/Jellyfin-remote%20control-AA5CC3)
+
+## About this fork
+
+Jeeves (JeevesPad) is a hard fork of [HomeButler](https://github.com/markcipolla/HomeButler) by [Mark Cipolla](https://github.com/markcipolla), which laid the foundation: the native dashboard, rooms, weather, entity cards and Home Assistant integration. JeevesPad has since gone its own way and is developed independently; changes aren't merged back upstream. Highlights of the fork:
+
+- Renamed to Jeeves, with a new icon, bundle ID and settings migration from HomeButler
+- Jellyfin in place of Plex
+- Home Assistant-style card interactions (tap to toggle, long-press for a more-info screen)
+- Light color, color temperature and effect controls, on cards and in more-info
+- Card renaming and sizing per dashboard
+- Builds against the iOS 9.3 SDK, plus fixes for iOS 9-specific crashes
+
+If you're coming from HomeButler, see [Upgrading from HomeButler](#upgrading-from-homebutler).
 
 ## Features
 
@@ -35,8 +50,8 @@ https://github.com/user-attachments/assets/7f0fc34f-93f5-4bdb-b7bc-e2405993784f
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/markcipolla/HomeButler.git
-   cd HomeButler
+   git clone https://github.com/JonnyFunFun/JeevesPad.git
+   cd JeevesPad
    ```
 
 2. Build with Theos. The `Makefile` expects Theos at `~/dev/theos`; point it elsewhere with `THEOS=`:
@@ -337,6 +352,7 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
+- [Mark Cipolla](https://github.com/markcipolla), who created [HomeButler](https://github.com/markcipolla/HomeButler), the project Jeeves is forked from
 - Built for the Home Assistant and Jellyfin communities
 - Designed for legacy iOS devices that deserve smart home control
 - Named for Reginald Jeeves, created by P.G. Wodehouse
