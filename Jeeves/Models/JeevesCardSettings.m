@@ -27,19 +27,24 @@ static NSString * const kSizeKey = @"size";
 - (instancetype)init {
     self = [super init];
     if (self) {
-        _settings = [NSMutableDictionary dictionary];
-        NSDictionary *saved = [[NSUserDefaults standardUserDefaults] dictionaryForKey:kDefaultsCardSettings];
-        for (NSString *dashboard in saved) {
-            NSMutableDictionary *cards = [NSMutableDictionary dictionary];
-            NSDictionary *savedCards = saved[dashboard];
-            if (![savedCards isKindOfClass:[NSDictionary class]]) continue;
-            for (NSString *entityId in savedCards) {
-                cards[entityId] = [savedCards[entityId] mutableCopy];
-            }
-            _settings[dashboard] = cards;
-        }
+        [self reloadFromDefaults];
     }
     return self;
+}
+
+- (void)reloadFromDefaults {
+    NSMutableDictionary *settings = [NSMutableDictionary dictionary];
+    NSDictionary *saved = [[NSUserDefaults standardUserDefaults] dictionaryForKey:kDefaultsCardSettings];
+    for (NSString *dashboard in saved) {
+        NSMutableDictionary *cards = [NSMutableDictionary dictionary];
+        NSDictionary *savedCards = saved[dashboard];
+        if (![savedCards isKindOfClass:[NSDictionary class]]) continue;
+        for (NSString *entityId in savedCards) {
+            cards[entityId] = [savedCards[entityId] mutableCopy];
+        }
+        settings[dashboard] = cards;
+    }
+    _settings = settings;
 }
 
 - (void)saveAndNotifyDashboard:(NSString *)dashboardID {

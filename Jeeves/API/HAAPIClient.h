@@ -21,6 +21,8 @@ extern NSString * const HAAPIClientConnectionStatusChangedNotification;
 
 - (void)configureWithBaseURL:(NSString *)baseURL accessToken:(NSString *)accessToken;
 - (BOOL)isConfigured;
+// Re-reads settings from NSUserDefaults (e.g. after another iPad shared its settings)
+- (void)reloadFromDefaults;
 
 - (void)fetchStatesWithCompletion:(HAEntitiesBlock)completion;
 - (void)fetchStateForEntity:(NSString *)entityId completion:(void (^)(HAEntity * _Nullable entity, NSError * _Nullable error))completion;

@@ -87,5 +87,13 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Jeeves can use the front camera to wake the dimmed screen when someone walks by. Images are analyzed on the device and never stored or sent.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_jeeves._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Jeeves finds other iPads running Jeeves on your network to share settings with them.</string>
 </dict>
 </plist>

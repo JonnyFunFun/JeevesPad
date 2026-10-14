@@ -31,6 +31,7 @@
 @property (nonatomic, strong) NSLayoutConstraint *controlsHeightConstraint;
 // Effect picker, always shown (bottom-right, level with the status) when the light has effects
 @property (nonatomic, strong) JeevesLightEffectButton *effectButton;
+@property (nonatomic, strong) UIPanGestureRecognizer *brightnessPan;
 
 @end
 
@@ -45,6 +46,7 @@
 }
 
 - (void)setupViews {
+    _allowsBrightnessDrag = YES;
     JeevesThemeManager *theme = [JeevesThemeManager sharedManager];
 
     self.contentView.backgroundColor = [theme cardBackgroundColor];
@@ -136,11 +138,28 @@
     UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
     pan.delegate = self;
     [self.contentView addGestureRecognizer:pan];
+    self.brightnessPan = pan;
 
     // Tap gesture for toggle
     UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(toggleTapped)];
     tap.delegate = self;
     [self.contentView addGestureRecognizer:tap];
+}
+
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
+    if (gestureRecognizer == self.brightnessPan) {
+        // Only claim the drag when it sets brightness; otherwise let the dashboard scroll
+        return self.allowsBrightnessDrag && self.isDimmable && !self.isReadOnly && self.entityId != nil;
+    }
+    return YES;
+}
+
+- (void)setAllowsBrightnessDrag:(BOOL)allowsBrightnessDrag {
+    if (_allowsBrightnessDrag == allowsBrightnessDrag) return;
+    _allowsBrightnessDrag = allowsBrightnessDrag;
+    // Without the drag, offer the brightness slider among the inline controls
+    self.controlsView.showsBrightness = !allowsBrightnessDrag;
+    [self updateLightControls];
 }
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch {
@@ -156,7 +175,7 @@
     if (self.effectButton.hidden == hasEffects) self.effectButton.hidden = !hasEffects;
     if (hasEffects) [self.effectButton configureWithEntity:entity];
 
-    NSInteger supported = entity ? [JeevesLightControlsView compactRowCountForEntity:entity showsBrightness:NO] : 0;
+    NSInteger supported = entity ? [JeevesLightControlsView compactRowCountForEntity:entity showsBrightness:self.controlsView.showsBrightness] : 0;
     NSInteger rows = MIN(supported, [JeevesLightControlsView compactRowsFittingHeight:self.controlsArea.bounds.size.height]);
     if (self.controlsArea.bounds.size.width < 120) rows = 0;
 
@@ -469,12 +488,8 @@
         return;
     }
 
-    // Use entityId to check if cell is configured
+    // Only dimmable lights start this gesture (see gestureRecognizerShouldBegin:)
     if (!self.entityId || !self.isDimmable) {
-        // For non-dimmable lights/switches, just toggle on release
-        if (pan.state == UIGestureRecognizerStateEnded) {
-            [self toggleTapped];
-        }
         return;
     }
 

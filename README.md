@@ -32,8 +32,11 @@ If you're coming from HomeButler, see [Upgrading from HomeButler](#upgrading-fro
 - **Card customization**: Rename cards and choose their size (X-Small, Small, Wide, Tall, Large) per dashboard
 - **Light controls**: Brightness, color, color temperature and effects — on the card itself when there's room, and on the more-info screen
 - **More-info screen**: Full controls and attributes for any entity, including climate, vacuums, numbers and selects
+- **Home Assistant dashboards**: Show your Lovelace dashboards, rebuilt natively with interactive Jeeves cards
 - **Jellyfin**: Browse your libraries and play to (and remote-control) any Jellyfin client
 - **Battery reporting**: Reports battery level to Home Assistant, e.g. to drive a smart plug that keeps the iPad's battery healthy
+- **Fleets**: iPads running Jeeves find each other on the network and share settings; `deploy_fleet.sh` updates them all at once
+- **Idle mode**: Returns to Home after a few minutes without a touch, then dims the screen (without turning it off) until the next touch — or movement in front of the camera
 - **Dark theme**: Designed for always-on displays
 
 ## Requirements
@@ -68,6 +71,16 @@ IPAD_IP=192.168.1.xxx ./deploy.sh
 ```
 
 `deploy.sh` builds the app, copies it to `/Applications` on the device over SSH, refreshes the home screen and launches it. It tries the default root password `alpine` first and prompts for yours if that's rejected (or set `IPAD_PASS`). If the device still has the old HomeButler app, the script removes it.
+
+### Deploying to a fleet
+
+```bash
+./deploy_fleet.sh                    # every iPad running Jeeves on the network
+./deploy_fleet.sh -f ipads.txt       # plus the iPads listed in a file (one per line)
+./deploy_fleet.sh -n 10.0.0.20 10.0.0.21   # only these iPads, no discovery
+```
+
+`deploy_fleet.sh` finds iPads with Bonjour — every running copy of Jeeves advertises itself — using `avahi-browse` on Linux (`avahi-utils`) or `dns-sd` on macOS. iPads where Jeeves isn't running can be listed with `-f FILE`, `IPADS="..."` or as arguments. It builds once, then installs on each iPad in turn and prints a summary. The root password is checked once (`IPAD_PASS`, default `alpine`, prompting if that's rejected) and the same password is used for every iPad. Run `./deploy_fleet.sh -h` for all options.
 
 ### Upgrading from HomeButler
 
@@ -104,13 +117,26 @@ The bar along the bottom holds:
 
 ### Home dashboard
 
-- Weather comes from the first `weather.*` entity in Home Assistant
+- The weather column shows the first `weather.*` entity by default. To customize it — for example to use a personal weather station's sensors — long-press the weather column or go to **Settings → Customize Home Weather**:
+  - **Weather entity**: Automatic (first `weather.*`), a specific one, or **None**. A weather entity provides the condition, icon and 6-day forecast; with None, the conditions card fills the column
+  - **Temperature**: from the weather entity, or any sensor (e.g. your station's outdoor temperature)
+  - **Readings**: any sensors to show as tiles on the weather card — humidity, wind speed and gusts, wind direction (shown as a compass point), rain, pressure, UV… Drag to reorder; tap a tile on Home for its details
 - Tap the **pencil** to choose which entities appear (up to 10)
 
 ### Rooms
 
 - Tap **+** to create a room and pick its entities
 - Select a room tile to see its dashboard; tap the **pencil** to edit the room
+
+### When idle
+
+Jeeves is built to live on the wall, so it tidies up after itself. Configure this under **Settings → When Idle**:
+
+- **Return to Home after** (default 3 minutes; or Never): with no touches for this long, any open screen closes and the Home dashboard is shown
+- **Dim screen when idle** (default on): after twice that time, the screen fades to 10% brightness. It stays on — while this is enabled, iOS Auto-Lock is held off — and the next touch restores full brightness. The touch that wakes the screen doesn't press anything
+- **Wake on motion (front camera)** (default off): iPads have no proximity sensor, so Jeeves can watch the front camera for movement while the screen is dimmed and brighten when someone walks by. The camera runs only while dimmed, at a very low resolution and frame rate; images are analyzed on the device and never stored or sent. Turning it on asks for camera permission
+
+Your original brightness is restored when Jeeves leaves the foreground, or on the next launch if it was closed while dimmed.
 
 ### Working with cards
 
@@ -121,7 +147,7 @@ The same gestures work on every dashboard:
 | Tap | Default action (see below) |
 | Long-press, then release | Open the more-info screen |
 | Long-press, then drag | Reorder; drop on 🗑 to remove from the dashboard |
-| Drag up/down (room cards) | Set a light's brightness |
+| Drag up/down (room cards) | Set a dimmable light's brightness (when the room fits on screen; in rooms that scroll, and on Home Assistant dashboards, vertical drags scroll and cards show a brightness slider instead) |
 
 What a tap does depends on the entity, following Home Assistant's defaults:
 
@@ -164,6 +190,47 @@ Customizations apply to that card on that dashboard only and are stored on the d
 When a light's card has room, its controls appear directly on the card: a brightness slider (Home cards — room cards use the vertical drag instead), color swatches and a color temperature slider. Bigger cards fit more of them.
 
 Lights with effects always show an **effect** button (✨) on the card's bottom row, right-aligned beside the on/off status, whatever the card's size.
+
+## Fleets: Sharing Settings Between iPads
+
+iPads running Jeeves on the same network discover each other (Bonjour) and can share their settings, so you only set up one. Open **Settings → Fleet**:
+
+1. Turn on **Fleet sync** and enter a **fleet code** — the same code on every iPad
+2. Other iPads running Jeeves appear in the list
+3. Tap an iPad to **Send My Settings** to it or **Copy Its Settings Here**, or use **Send My Settings to All iPads**
+
+The receiving iPad applies the settings straight away and shows a brief notice.
+
+| Shared | Kept per iPad |
+|--------|---------------|
+| Home Assistant URL and token, battery reporting on/off | Battery webhook ID |
+| Rooms, Home cards, card names and sizes | Jellyfin sign-in and playback target |
+| Home weather settings | Wake on motion |
+| Idle timeout and dimming | Last-viewed dashboard and screen brightness |
+| Jellyfin on/off and server | |
+
+Settings include your Home Assistant token, so everything sent between iPads is encrypted and authenticated with the fleet code (AES-256 and HMAC-SHA256, with a key derived by PBKDF2). iPads without the same code can neither change this iPad's settings nor read them. Requests are rejected if the two iPads' clocks differ by more than 10 minutes.
+
+## Home Assistant Dashboards
+
+Tap **Dashboards** in the bottom bar to show one of your Home Assistant (Lovelace) dashboards. Home Assistant's own dashboard UI needs iOS 12 or newer, so instead Jeeves fetches the dashboard's configuration and rebuilds it with native Jeeves cards, scaled to the screen. Cards work like everywhere else in Jeeves: tap to toggle, long-press for more-info, drag for brightness, inline light controls.
+
+- **Dashboards** (top right) switches between your dashboards; views appear as tabs along the top
+- Uses the Home Assistant connection from Settings — nothing else to set up
+- Pull down to reload the dashboard after changing it in Home Assistant
+
+How cards are translated:
+
+| Lovelace card | In Jeeves |
+|---------------|-----------|
+| `tile`, `button`, `light`, `entity`, `sensor`, `thermostat`, and other cards for a single entity | Entity card (using the card's `name`, if set) |
+| `entities`, `glance` | Heading plus a card per entity |
+| `grid`, `vertical-stack`, `horizontal-stack` | Their cards, in order (titles become headings) |
+| `heading`, `markdown` | Heading / text (templates aren't evaluated) |
+| `conditional` | Its card, always shown |
+| Anything else (`custom:` cards, graphs, maps, pictures, …) | A placeholder naming the card |
+
+Dashboards that Home Assistant generates automatically (the default Overview, until you choose "Take control" in Home Assistant) have no configuration to fetch, so Jeeves asks you to take control or pick another dashboard. Both classic and "sections" views are supported.
 
 ## Jellyfin
 
@@ -280,6 +347,7 @@ Jeeves talks to Home Assistant's REST API with Bearer token authentication:
 |----------|---------|
 | `GET /api/states` | Fetch all entities (every second while the dashboard is open) |
 | `GET /api/states/{entity_id}` | Refresh one entity (more-info screen) |
+| WebSocket `/api/websocket`: `lovelace/dashboards/list`, `lovelace/config` | Home Assistant dashboards (not available over REST) |
 | `POST /api/services/{domain}/{service}` | Control entities |
 | `POST /api/services/weather/get_forecasts` | Weather forecast |
 | `POST /api/webhook/jeeves_<id>_battery` | Battery reporting |
@@ -292,16 +360,20 @@ Jellyfin uses the server's REST API (`/Users/AuthenticateByName`, `/UserViews`, 
 Jeeves/
 ├── API/
 │   ├── HAAPIClient            # Home Assistant REST API client
+│   ├── HAWebSocketClient      # Home Assistant WebSocket commands (dashboards)
+│   ├── JeevesWebSocket        # Minimal WebSocket client (iOS 9 has none)
 │   ├── JeevesBatteryReporter  # Battery webhook reporting
 │   └── JeevesJellyfinClient   # Jellyfin API client
 ├── Models/
 │   ├── HAEntity               # Entity model and capability helpers
 │   ├── JeevesRoom             # Rooms and their persistence
 │   ├── JeevesCardSettings     # Per-dashboard card names/sizes, grid packing
+│   ├── JeevesLovelaceDashboard # Lovelace config → native dashboard items
 │   └── JeevesJellyfin*        # Jellyfin items, sessions, streams, targets
 ├── ViewControllers/
 │   ├── JeevesDashboardViewController       # Home and room dashboards
 │   ├── JeevesEntityMoreInfoViewController  # More-info screen
+│   ├── JeevesLovelaceViewController        # Home Assistant dashboards
 │   ├── JeevesAddRoomViewController         # Room editor
 │   ├── SettingsViewController              # Settings
 │   └── JeevesJellyfin*                     # Jellyfin browsing and remote

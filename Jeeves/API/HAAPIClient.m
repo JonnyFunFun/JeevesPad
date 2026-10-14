@@ -29,12 +29,16 @@ NSString * const HAAPIClientConnectionStatusChangedNotification = @"HAAPIClientC
         config.timeoutIntervalForResource = 60.0;
         _session = [NSURLSession sessionWithConfiguration:config delegate:self delegateQueue:nil];
 
-        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-        _baseURL = [defaults stringForKey:@"HABaseURL"];
-        _accessToken = [defaults stringForKey:@"HAAccessToken"];
-        _batteryReportingEnabled = [defaults boolForKey:@"HABatteryReportingEnabled"];
+        [self reloadFromDefaults];
     }
     return self;
+}
+
+- (void)reloadFromDefaults {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    _baseURL = [defaults stringForKey:@"HABaseURL"];
+    _accessToken = [defaults stringForKey:@"HAAccessToken"];
+    _batteryReportingEnabled = [defaults boolForKey:@"HABatteryReportingEnabled"];
 }
 
 #pragma mark - NSURLSessionDelegate

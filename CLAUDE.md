@@ -26,9 +26,12 @@ When adding new files, update BOTH:
 ```bash
 # Set your device IP and run
 IPAD_IP=192.168.1.xxx ./deploy.sh
+
+# Or every iPad in the fleet (Bonjour discovery and/or -f hosts file)
+./deploy_fleet.sh
 ```
 
-Or edit `deploy.sh` and set `IPAD_IP` directly.
+Or edit `deploy.sh` and set `IPAD_IP` directly. Both scripts share `deploy_common.sh` (password check/prompt, build, install).
 
 ### SSH Access
 
@@ -57,6 +60,8 @@ iOS 9 crash reports don't include the exception message, so the app records the 
 cat /var/mobile/Library/Logs/Jeeves-exception.log
 ```
 
+If the app disappears with no `Jeeves-*.ips` report, it was probably killed for using too much memory: look for a `JetsamEvent-*.ips` in the same directory (`largestProcess` and each process's `rpages` × 4KB). Target devices have little RAM (an iPad mini has 512MB), so keep caches bounded and release them on memory warnings.
+
 ## Building
 
 ### Theos (for deployment)
@@ -77,7 +82,7 @@ Output: `Jeeves.ipa`
 
 ### UI Layout
 - **Standard Spacing**: 12.0 points throughout the app
-- **Entity Cards**: Tap to toggle, vertical drag for brightness (dimmable lights)
+- **Entity Cards**: Tap to toggle, vertical drag for brightness (dimmable lights only; disabled via `allowsBrightnessDrag` where cards scroll — HA dashboards, and rooms that overflow — so drags scroll and the inline brightness slider is shown instead)
 - **Tap Feedback**: 6px golden border animation (100ms fade in/out)
 
 ### Orientation-Aware Layouts
@@ -124,6 +129,22 @@ Each card can be renamed and resized per dashboard (Home or a room) from the "Ca
 - **Short cards**: Home cards under 76pt tall switch to a single-row layout (name, value, effect button); room cards under 110pt use a one-line name and smaller status
 - **Layout**: cards are packed first-fit in order (`+[JeevesCardSettings packSpans:columns:rowCount:]`) — by hand on Home, via `JeevesGridLayout` in rooms
 
+### Fleets
+
+Every running Jeeves advertises `_jeeves._tcp` (`JeevesFleetService`, `NSNetService` with `NSNetServiceListenForConnections`) and browses for the others; `deploy_fleet.sh` uses the same service type. Settings are shared with one request per connection (length-prefixed binary plists; `push` applies the sender's settings, `pull` returns the receiver's), sealed with the fleet code (`JeevesFleetCrypto`). `JeevesFleetSettings` defines which `NSUserDefaults` keys are shared (`+sharedKeys`) — add new settings there if they should sync, and add a `reloadFromDefaults` to any singleton that caches them. After applying, `AppDelegate -fleetSettingsApplied:` rebuilds the root UI (calling `-[JeevesDashboardViewController stopUpdates]` so the old dashboard is released).
+
+### Idle Mode
+
+`JeevesApplication` (a `UIApplication` subclass set in `main.m`) reports every touch to `JeevesIdleManager`, which returns to Home after `homeTimeout` (default 180s; `AppDelegate -returnToHome`) and dims the screen via `UIScreen.brightness` at twice that, holding off Auto-Lock while dimming is enabled. The touch that wakes a dimmed screen is swallowed. `JeevesMotionDetector` (front camera, frame differencing; opt-in) wakes the screen while dimmed. Pre-dim brightness is persisted and restored on resign-active or relaunch.
+
+### Home Weather Column
+
+Configured in `JeevesWeatherSettings` (edited in `JeevesWeatherSettingsViewController`; long-press the weather column or Settings → Customize Home Weather): weather entity (automatic/none/specific — supplies condition, icon and forecast), temperature source (weather entity or a sensor), and extra sensor readings shown as tiles. Without a weather entity the conditions card fills the column. The column is only rebuilt when its layout signature changes (`weatherLayoutSignature`); values update every refresh via `updateCurrentConditions`.
+
+### Home Assistant (Lovelace) Dashboards
+
+The HA frontend requires iOS/Safari 12+, so dashboards can't be shown in a web view. Instead `JeevesLovelaceViewController` fetches the config over HA's WebSocket API (`HAWebSocketClient`, using `JeevesWebSocket` since iOS 9 has no WebSocket support) and `JeevesLovelaceDashboard` translates cards into native items (entity cards, headings, text, placeholders) shown in a `JeevesGridLayout`. Auto-generated dashboards return `config_not_found` and can't be shown.
+
 ## Key Files
 
 | File | Purpose |
@@ -147,6 +168,8 @@ POST /api/services/{domain}/{service}      # Call services
 POST /api/services/weather/get_forecasts   # Weather forecast
 GET  /api/camera_proxy/{entity_id}         # Camera stream
 ```
+
+Lovelace dashboards are only available over the WebSocket API (`/api/websocket`: `lovelace/dashboards/list`, `lovelace/config`).
 
 All requests use Bearer token authentication.
 

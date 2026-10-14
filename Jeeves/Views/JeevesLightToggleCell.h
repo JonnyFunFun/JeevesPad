@@ -26,6 +26,11 @@
 @property (nonatomic, copy, readonly) NSString *entityId;
 
 - (void)configureWithEntity:(HAEntity *)entity;
+
+// Vertical drag sets a dimmable light's brightness (default YES). Set NO where the
+// cards are in a scrolling view, so vertical drags scroll; the card then shows an
+// inline brightness slider instead, when it has room.
+@property (nonatomic, assign) BOOL allowsBrightnessDrag;
 // Same, showing a card-specific name instead of the entity's friendly name
 - (void)configureWithEntity:(HAEntity *)entity displayName:(NSString *)displayName;
 

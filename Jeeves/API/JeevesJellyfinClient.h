@@ -75,6 +75,10 @@ extern NSString * const JellyfinSettingsChangedNotification;
                                                    size:(CGSize)size
                                              completion:(JeevesJellyfinImageBlock)completion;
 
+// Frees cached posters/backdrops (call when the Jellyfin UI closes). Also done
+// automatically on memory warnings.
+- (void)clearImageCache;
+
 @end
 
 NS_ASSUME_NONNULL_END

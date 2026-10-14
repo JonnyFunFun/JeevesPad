@@ -26,6 +26,8 @@
 - (void)updateRoom:(JeevesRoom *)room;
 - (void)moveRoomFromIndex:(NSInteger)fromIndex toIndex:(NSInteger)toIndex;
 - (void)saveRooms;
+// Re-reads settings from NSUserDefaults (e.g. after another iPad shared its settings)
+- (void)reloadFromDefaults;
 - (JeevesRoom *)roomWithId:(NSString *)roomId;
 
 @end

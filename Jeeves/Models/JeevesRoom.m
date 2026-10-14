@@ -80,6 +80,10 @@
     return [self.mutableRooms copy];
 }
 
+- (void)reloadFromDefaults {
+    [self loadRooms];
+}
+
 - (void)loadRooms {
     NSData *data = [[NSUserDefaults standardUserDefaults] objectForKey:@"JeevesRooms"];
     if (data) {

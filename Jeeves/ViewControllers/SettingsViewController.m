@@ -3,6 +3,10 @@
 #import "JeevesDashboardViewController.h"
 #import "JeevesThemeManager.h"
 #import "JeevesBatteryReporter.h"
+#import "JeevesWeatherSettingsViewController.h"
+#import "JeevesIdleManager.h"
+#import "JeevesFleetViewController.h"
+#import "JeevesMotionDetector.h"
 #import "JeevesJellyfinClient.h"
 #import "JeevesJellyfinTarget.h"
 
@@ -16,6 +20,12 @@
 @property (nonatomic, strong) UILabel *statusLabel;
 @property (nonatomic, strong) UIScrollView *scrollView;
 @property (nonatomic, strong) UIView *contentView;
+
+// Idle
+@property (nonatomic, strong) UIButton    *idleTimeoutButton;
+@property (nonatomic, strong) UISwitch    *dimSwitch;
+@property (nonatomic, strong) UISwitch    *motionSwitch;
+@property (nonatomic, strong) UILabel     *idleHintLabel;
 
 // Jellyfin
 @property (nonatomic, strong) UISwitch    *jellyfinEnabledSwitch;
@@ -169,6 +179,69 @@
     self.testConnectionButton.titleLabel.font = [UIFont systemFontOfSize:16];
     [self.testConnectionButton addTarget:self action:@selector(testConnectionTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.contentView addSubview:self.testConnectionButton];
+    yOffset += 54;
+
+    // --- Idle ---
+    CGFloat rowWidth = self.view.bounds.size.width - 2 * padding;
+    UILabel *idleHeader = [[UILabel alloc] initWithFrame:CGRectMake(padding, yOffset, rowWidth, 28)];
+    idleHeader.text = @"When Idle";
+    idleHeader.font = [UIFont boldSystemFontOfSize:18];
+    idleHeader.textColor = [theme textColor];
+    [self.contentView addSubview:idleHeader];
+    yOffset += 36;
+
+    UIView *timeoutRow = [self settingsRowWithTitle:@"Return to Home after" atY:yOffset padding:padding];
+    self.idleTimeoutButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.idleTimeoutButton.frame = CGRectMake(timeoutRow.bounds.size.width - 160, 0, 148, 44);
+    self.idleTimeoutButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentRight;
+    self.idleTimeoutButton.titleLabel.font = [UIFont systemFontOfSize:16];
+    [self.idleTimeoutButton setTitleColor:[theme accentColor] forState:UIControlStateNormal];
+    [self.idleTimeoutButton addTarget:self action:@selector(idleTimeoutTapped) forControlEvents:UIControlEventTouchUpInside];
+    [timeoutRow addSubview:self.idleTimeoutButton];
+    yOffset += 50;
+
+    UIView *dimRow = [self settingsRowWithTitle:@"Dim screen when idle" atY:yOffset padding:padding];
+    self.dimSwitch = [[UISwitch alloc] init];
+    self.dimSwitch.frame = CGRectMake(dimRow.bounds.size.width - 60, 7, 51, 31);
+    self.dimSwitch.onTintColor = [theme accentColor];
+    [self.dimSwitch addTarget:self action:@selector(dimSwitchChanged) forControlEvents:UIControlEventValueChanged];
+    [dimRow addSubview:self.dimSwitch];
+    yOffset += 50;
+
+    UIView *motionRow = [self settingsRowWithTitle:@"Wake on motion (front camera)" atY:yOffset padding:padding];
+    self.motionSwitch = [[UISwitch alloc] init];
+    self.motionSwitch.frame = CGRectMake(motionRow.bounds.size.width - 60, 7, 51, 31);
+    self.motionSwitch.onTintColor = [theme accentColor];
+    self.motionSwitch.enabled = [JeevesMotionDetector isAvailable];
+    [self.motionSwitch addTarget:self action:@selector(motionSwitchChanged) forControlEvents:UIControlEventValueChanged];
+    [motionRow addSubview:self.motionSwitch];
+    yOffset += 50;
+
+    self.idleHintLabel = [[UILabel alloc] initWithFrame:CGRectMake(padding, yOffset, rowWidth, 64)];
+    self.idleHintLabel.font = [UIFont systemFontOfSize:12];
+    self.idleHintLabel.textColor = [theme secondaryTextColor];
+    self.idleHintLabel.numberOfLines = 0;
+    [self.contentView addSubview:self.idleHintLabel];
+    yOffset += 70;
+    [self updateIdleControls];
+
+    // --- Home weather ---
+    UIButton *weatherButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    weatherButton.frame = CGRectMake(padding, yOffset, self.view.bounds.size.width - 2 * padding, 44);
+    [weatherButton setTitle:@"Customize Home Weather\u2026" forState:UIControlStateNormal];
+    [weatherButton setTitleColor:[theme accentColor] forState:UIControlStateNormal];
+    weatherButton.titleLabel.font = [UIFont systemFontOfSize:16];
+    [weatherButton addTarget:self action:@selector(weatherSettingsTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.contentView addSubview:weatherButton];
+    yOffset += 54;
+
+    UIButton *fleetButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    fleetButton.frame = CGRectMake(padding, yOffset, self.view.bounds.size.width - 2 * padding, 44);
+    [fleetButton setTitle:@"Fleet (Share Settings with Other iPads)\u2026" forState:UIControlStateNormal];
+    [fleetButton setTitleColor:[theme accentColor] forState:UIControlStateNormal];
+    fleetButton.titleLabel.font = [UIFont systemFontOfSize:16];
+    [fleetButton addTarget:self action:@selector(fleetTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.contentView addSubview:fleetButton];
     yOffset += 54;
 
     // --- Jellyfin section ---
@@ -380,6 +453,109 @@
 - (void)keyboardWillHide:(NSNotification *)notification {
     self.scrollView.contentInset = UIEdgeInsetsZero;
     self.scrollView.scrollIndicatorInsets = UIEdgeInsetsZero;
+}
+
+#pragma mark - Idle
+
+- (UIView *)settingsRowWithTitle:(NSString *)title atY:(CGFloat)y padding:(CGFloat)padding {
+    JeevesThemeManager *theme = [JeevesThemeManager sharedManager];
+    UIView *row = [[UIView alloc] initWithFrame:CGRectMake(padding, y, self.view.bounds.size.width - 2 * padding, 44)];
+    row.backgroundColor = [theme cardBackgroundColor];
+    row.layer.cornerRadius = 8;
+    UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(12, 0, row.bounds.size.width - 180, 44)];
+    label.text = title;
+    label.font = [UIFont systemFontOfSize:16];
+    label.textColor = [theme textColor];
+    label.adjustsFontSizeToFitWidth = YES;
+    label.minimumScaleFactor = 0.7;
+    [row addSubview:label];
+    [self.contentView addSubview:row];
+    return row;
+}
+
+- (void)updateIdleControls {
+    JeevesIdleManager *idle = [JeevesIdleManager sharedManager];
+    [self.idleTimeoutButton setTitle:[JeevesIdleManager titleForTimeout:idle.homeTimeout] forState:UIControlStateNormal];
+    BOOL timeoutOn = idle.homeTimeout > 0;
+    self.dimSwitch.on = idle.dimsWhenIdle;
+    self.dimSwitch.enabled = timeoutOn;
+    self.motionSwitch.on = idle.wakesOnMotion;
+    self.motionSwitch.enabled = timeoutOn && idle.dimsWhenIdle && [JeevesMotionDetector isAvailable];
+
+    NSMutableString *hint = [NSMutableString string];
+    if (!timeoutOn) {
+        [hint appendString:@"Jeeves stays on whatever screen you leave it on, and iOS Auto-Lock applies."];
+    } else {
+        [hint appendFormat:@"After %@ without a touch, Jeeves returns to the Home screen.", [JeevesIdleManager titleForTimeout:idle.homeTimeout]];
+        if (idle.dimsWhenIdle) {
+            [hint appendFormat:@" After %@ it dims the screen (keeping it on) until the next touch%@.",
+             [JeevesIdleManager titleForTimeout:idle.homeTimeout * 2],
+             idle.wakesOnMotion ? @" or movement in front of the camera" : @""];
+        }
+        if (idle.wakesOnMotion) {
+            [hint appendString:@" Camera images are analyzed on the iPad only while dimmed, and never stored or sent."];
+        }
+    }
+    self.idleHintLabel.text = hint;
+}
+
+- (void)idleTimeoutTapped {
+    [self dismissKeyboard];
+    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"Return to Home after"
+                                                                   message:nil
+                                                            preferredStyle:UIAlertControllerStyleActionSheet];
+    NSTimeInterval current = [JeevesIdleManager sharedManager].homeTimeout;
+    for (NSNumber *choice in [JeevesIdleManager timeoutChoices]) {
+        NSString *title = [JeevesIdleManager titleForTimeout:choice.doubleValue];
+        if (fabs(choice.doubleValue - current) < 1) title = [NSString stringWithFormat:@"\u2713 %@", title];
+        [sheet addAction:[UIAlertAction actionWithTitle:title style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+            [JeevesIdleManager sharedManager].homeTimeout = choice.doubleValue;
+            [self updateIdleControls];
+        }]];
+    }
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    sheet.popoverPresentationController.sourceView = self.idleTimeoutButton;
+    sheet.popoverPresentationController.sourceRect = self.idleTimeoutButton.bounds;
+    [self presentViewController:sheet animated:YES completion:nil];
+}
+
+- (void)dimSwitchChanged {
+    [JeevesIdleManager sharedManager].dimsWhenIdle = self.dimSwitch.on;
+    [self updateIdleControls];
+}
+
+- (void)motionSwitchChanged {
+    if (!self.motionSwitch.on) {
+        [JeevesIdleManager sharedManager].wakesOnMotion = NO;
+        [self updateIdleControls];
+        return;
+    }
+    // Ask for camera access now, rather than the first time the screen dims
+    [JeevesMotionDetector requestAccessWithCompletion:^(BOOL granted) {
+        [JeevesIdleManager sharedManager].wakesOnMotion = granted;
+        [self updateIdleControls];
+        if (!granted) {
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Camera Access Needed"
+                                                                           message:@"Allow camera access for Jeeves in the Settings app to wake on motion."
+                                                                    preferredStyle:UIAlertControllerStyleAlert];
+            [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+            [self presentViewController:alert animated:YES completion:nil];
+        }
+    }];
+}
+
+#pragma mark - Fleet
+
+- (void)fleetTapped {
+    [self dismissKeyboard];
+    [self.navigationController pushViewController:[[JeevesFleetViewController alloc] init] animated:YES];
+}
+
+#pragma mark - Home weather
+
+- (void)weatherSettingsTapped {
+    [self dismissKeyboard];
+    [self.navigationController pushViewController:[[JeevesWeatherSettingsViewController alloc] init] animated:YES];
 }
 
 #pragma mark - Jellyfin

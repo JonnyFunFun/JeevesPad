@@ -34,6 +34,9 @@ extern NSString * const JeevesCardSettingsDidChangeNotification;
 - (void)removeEntityId:(NSString *)entityId fromDashboard:(NSString *)dashboardID;
 - (void)removeDashboard:(NSString *)dashboardID;
 
+// Re-reads settings from NSUserDefaults (e.g. after another iPad shared its settings)
+- (void)reloadFromDefaults;
+
 // Grid spans. Rows are half-height units so X-Small cards fit: a Small card is
 // 1 column x 2 half-rows.
 + (NSInteger)columnSpanForSize:(JeevesCardSize)size;

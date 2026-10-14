@@ -49,9 +49,16 @@ static const NSInteger kActiveSessionWindowSeconds = 960;
         config.timeoutIntervalForResource = 60.0;
         _session = [NSURLSession sessionWithConfiguration:config delegate:self delegateQueue:nil];
 
+        // Costs are decoded bitmap sizes. Older iPads have little RAM (an iPad mini has
+        // 512MB) and iOS kills the app outright under memory pressure, so scale the
+        // limit with the device: ~21MB on 512MB devices, at most 32MB.
         _imageCache = [[NSCache alloc] init];
-        _imageCache.countLimit = 200;
-        _imageCache.totalCostLimit = 64 * 1024 * 1024;
+        _imageCache.countLimit = 100;
+        _imageCache.totalCostLimit = (NSUInteger)MIN(32ull * 1024 * 1024, [NSProcessInfo processInfo].physicalMemory / 24);
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(clearImageCache)
+                                                     name:UIApplicationDidReceiveMemoryWarningNotification
+                                                   object:nil];
 
         [self reloadFromDefaults];
     }
@@ -574,7 +581,10 @@ static const NSInteger kActiveSessionWindowSeconds = 960;
         }
         UIImage *img = [UIImage imageWithData:data];
         if (img) {
-            [self.imageCache setObject:img forKey:url cost:data.length];
+            // Cost is what the image occupies once decoded for display, not the
+            // (much smaller) compressed download size
+            NSUInteger decodedBytes = (NSUInteger)(img.size.width * img.scale * img.size.height * img.scale * 4);
+            [self.imageCache setObject:img forKey:url cost:decodedBytes];
         }
         dispatch_async(dispatch_get_main_queue(), ^{
             if (completion) completion(img, nil);
@@ -582,6 +592,10 @@ static const NSInteger kActiveSessionWindowSeconds = 960;
     }];
     [task resume];
     return task;
+}
+
+- (void)clearImageCache {
+    [self.imageCache removeAllObjects];
 }
 
 #pragma mark - Errors

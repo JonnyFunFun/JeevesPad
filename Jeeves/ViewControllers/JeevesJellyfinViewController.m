@@ -61,7 +61,10 @@
 }
 
 - (void)closeTapped {
-    [self dismissViewControllerAnimated:YES completion:nil];
+    [self dismissViewControllerAnimated:YES completion:^{
+        // Posters and backdrops aren't needed outside Jellyfin; free them for the dashboard
+        [[JeevesJellyfinClient sharedClient] clearImageCache];
+    }];
 }
 
 - (void)setupViews {

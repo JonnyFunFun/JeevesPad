@@ -4,6 +4,9 @@
 #import "JeevesThemeManager.h"
 #import "API/JeevesBatteryReporter.h"
 #import "API/JeevesJellyfinClient.h"
+#import "JeevesIdleManager.h"
+#import "JeevesFleetService.h"
+#import "JeevesFleetSettings.h"
 
 @interface AppDelegate ()
 
@@ -40,30 +43,24 @@ static NSString * const kLegacyPreferencesDomain = @"com.homebutler.HomeButler";
 
     self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
 
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    NSString *baseURL = [defaults stringForKey:@"HABaseURL"];
-    NSString *accessToken = [defaults stringForKey:@"HAAccessToken"];
-
-    UIViewController *rootViewController;
-
-    if (baseURL && accessToken && baseURL.length > 0 && accessToken.length > 0) {
-        JeevesDashboardViewController *dashboardVC = [[JeevesDashboardViewController alloc] init];
-        UINavigationController *navController = [[UINavigationController alloc] initWithRootViewController:dashboardVC];
-        [[JeevesThemeManager sharedManager] applyThemeToNavigationBar:navController.navigationBar];
-        rootViewController = navController;
-    } else {
-        SettingsViewController *settingsVC = [[SettingsViewController alloc] init];
-        settingsVC.isInitialSetup = YES;
-        UINavigationController *navController = [[UINavigationController alloc] initWithRootViewController:settingsVC];
-        [[JeevesThemeManager sharedManager] applyThemeToNavigationBar:navController.navigationBar];
-        rootViewController = navController;
-    }
-
-    self.window.rootViewController = rootViewController;
+    self.window.rootViewController = [self makeRootViewController];
     [self.window makeKeyAndVisible];
 
     // Start battery reporting (will only POST if webhook URL is configured)
     [[JeevesBatteryReporter sharedReporter] startReporting];
+
+    // Idle timeout: return to Home, then dim the screen
+    JeevesIdleManager *idle = [JeevesIdleManager sharedManager];
+    __weak typeof(self) weakSelf = self;
+    idle.returnHomeHandler = ^{
+        [weakSelf returnToHome];
+    };
+    [idle start];
+
+    // Fleet: advertise this iPad (Bonjour) and accept settings from other iPads
+    [[JeevesFleetService sharedService] start];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(fleetSettingsApplied:)
+                                                 name:JeevesFleetSettingsAppliedNotification object:nil];
 
     // Warm-init the Jellyfin client (creates its persistent device ID on first launch)
     (void)[JeevesJellyfinClient sharedClient];
@@ -95,6 +92,72 @@ static NSString * const kLegacyPreferencesDomain = @"com.homebutler.HomeButler";
 
     CFPreferencesSetMultiple(NULL, (__bridge CFArrayRef)legacyKeys, legacyDomain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
     CFPreferencesSynchronize(legacyDomain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+}
+
+// The dashboard once Home Assistant is configured, otherwise first-run setup
+- (UIViewController *)makeRootViewController {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSString *baseURL = [defaults stringForKey:@"HABaseURL"];
+    NSString *accessToken = [defaults stringForKey:@"HAAccessToken"];
+
+    UIViewController *root;
+    if (baseURL.length > 0 && accessToken.length > 0) {
+        root = [[JeevesDashboardViewController alloc] init];
+    } else {
+        SettingsViewController *settingsVC = [[SettingsViewController alloc] init];
+        settingsVC.isInitialSetup = YES;
+        root = settingsVC;
+    }
+    UINavigationController *navController = [[UINavigationController alloc] initWithRootViewController:root];
+    [[JeevesThemeManager sharedManager] applyThemeToNavigationBar:navController.navigationBar];
+    return navController;
+}
+
+// Another iPad's settings were applied: rebuild the UI so every screen picks them up
+- (void)fleetSettingsApplied:(NSNotification *)note {
+    UINavigationController *oldNav = (UINavigationController *)self.window.rootViewController;
+    void (^replace)(void) = ^{
+        if ([oldNav isKindOfClass:[UINavigationController class]]) {
+            id oldRoot = oldNav.viewControllers.firstObject;
+            if ([oldRoot isKindOfClass:[JeevesDashboardViewController class]]) [oldRoot stopUpdates];
+        }
+        self.window.rootViewController = [self makeRootViewController];
+
+        // Brief notice that closes itself (nobody may be at the wall panel to dismiss it)
+        NSString *source = [note.object isKindOfClass:[NSString class]] ? note.object : @"another iPad";
+        UIAlertController *notice = [UIAlertController alertControllerWithTitle:@"Settings Updated"
+                                                                        message:[NSString stringWithFormat:@"Settings were copied from %@.", source]
+                                                                 preferredStyle:UIAlertControllerStyleAlert];
+        UIViewController *root = self.window.rootViewController;
+        [root presentViewController:notice animated:YES completion:nil];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if (root.presentedViewController == notice) [notice dismissViewControllerAnimated:YES completion:nil];
+        });
+    };
+    if (oldNav.presentedViewController) {
+        [oldNav dismissViewControllerAnimated:NO completion:replace];
+    } else {
+        replace();
+    }
+}
+
+// Closes any open screens and shows the Home dashboard. Does nothing during
+// first-run setup (when the dashboard isn't the root yet).
+- (void)returnToHome {
+    UINavigationController *nav = (UINavigationController *)self.window.rootViewController;
+    if (![nav isKindOfClass:[UINavigationController class]]) return;
+    JeevesDashboardViewController *dashboard = (JeevesDashboardViewController *)nav.viewControllers.firstObject;
+    if (![dashboard isKindOfClass:[JeevesDashboardViewController class]]) return;
+
+    void (^showHome)(void) = ^{
+        [nav popToRootViewControllerAnimated:NO];
+        [dashboard showHome];
+    };
+    if (nav.presentedViewController) {
+        [nav dismissViewControllerAnimated:YES completion:showHome];
+    } else {
+        showHome();
+    }
 }
 
 - (void)applicationWillResignActive:(UIApplication *)application {

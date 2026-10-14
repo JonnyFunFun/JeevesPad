@@ -13,6 +13,9 @@
 #import "JeevesActionButton.h"
 #import "JeevesJellyfinClient.h"
 #import "JeevesJellyfinViewController.h"
+#import "JeevesLovelaceViewController.h"
+#import "JeevesWeatherSettings.h"
+#import "JeevesWeatherSettingsViewController.h"
 #import "JeevesEntityMoreInfoViewController.h"
 #import <objc/runtime.h>
 
@@ -24,6 +27,7 @@
 @property (nonatomic, strong) UICollectionView *roomsCollectionView;
 @property (nonatomic, strong) UIButton *settingsButton;
 @property (nonatomic, strong) UIButton *jellyfinButton;
+@property (nonatomic, strong) UIButton *lovelaceButton;
 @property (nonatomic, strong) UIButton *addRoomButton;
 
 // Track if Home is selected
@@ -61,6 +65,11 @@
 @property (nonatomic, strong) HAEntity *weatherEntity;
 @property (nonatomic, strong) NSTimer *weatherRefreshTimer;
 @property (nonatomic, strong) NSDate *lastWeatherFetch;
+@property (nonatomic, strong) NSDate *lastWeatherFetchAttempt;
+@property (nonatomic, copy) NSString *weatherLayoutSignature;   // layout the weather column was built for
+@property (nonatomic, assign) BOOL weatherShowsForecast;         // a weather entity is configured and present
+@property (nonatomic, strong) UIScrollView *weatherReadingsView; // sensor readings on the weather card
+@property (nonatomic, copy) NSArray<UIView *> *weatherReadingTiles;
 @property (nonatomic, strong) NSTimer *entityRefreshTimer;
 
 // Home sensors panel (right side)
@@ -104,6 +113,25 @@ static const NSInteger kHomeCardEffectTag = 9103;
 static const CGFloat kLongPressDragThreshold = 12.0;
 static const CGFloat kRoomTileSize = 90.0;
 
+// Number from an NSNumber or a fully numeric string (e.g. a sensor state); nil for
+// "unavailable", "unknown" and other non-numeric values
+static NSNumber *JeevesNumericValue(id value) {
+    if ([value isKindOfClass:[NSNumber class]]) return value;
+    if (![value isKindOfClass:[NSString class]]) return nil;
+    NSScanner *scanner = [NSScanner scannerWithString:value];
+    double number;
+    if ([scanner scanDouble:&number] && scanner.isAtEnd) return @(number);
+    return nil;
+}
+
+// 16-point compass direction for a bearing in degrees
+static NSString *JeevesCompassPoint(double degrees) {
+    NSArray *points = @[@"N", @"NNE", @"NE", @"ENE", @"E", @"ESE", @"SE", @"SSE",
+                        @"S", @"SSW", @"SW", @"WSW", @"W", @"WNW", @"NW", @"NNW"];
+    NSInteger index = (NSInteger)floor(fmod(fmod(degrees, 360.0) + 360.0 + 11.25, 360.0) / 22.5);
+    return points[index % 16];
+}
+
 @implementation JeevesDashboardViewController
 
 - (void)viewDidLoad {
@@ -133,6 +161,12 @@ static const CGFloat kRoomTileSize = 90.0;
     [self loadWeatherDataIfNeeded];
 
     // Listen for room changes
+    // Rebuild the weather column when its sources change
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(weatherSettingsChanged:)
+                                                 name:JeevesWeatherSettingsDidChangeNotification
+                                               object:nil];
+
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(roomDidChange:)
                                                  name:@"JeevesRoomDidChangeNotification"
@@ -346,6 +380,19 @@ static const CGFloat kRoomTileSize = 90.0;
     [self.settingsButton addTarget:self action:@selector(settingsTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.bottomNavBar addSubview:self.settingsButton];
 
+    // Home Assistant dashboards button (between settings and Jellyfin/addRoom)
+    self.lovelaceButton = [UIButton buttonWithType:UIButtonTypeCustom];
+    self.lovelaceButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.lovelaceButton setTitle:@"Dashboards" forState:UIControlStateNormal];
+    [self.lovelaceButton setTitleColor:[theme textColor] forState:UIControlStateNormal];
+    self.lovelaceButton.titleLabel.font = [UIFont boldSystemFontOfSize:14];
+    self.lovelaceButton.titleLabel.adjustsFontSizeToFitWidth = YES;
+    self.lovelaceButton.titleLabel.minimumScaleFactor = 0.7;
+    self.lovelaceButton.contentEdgeInsets = UIEdgeInsetsMake(0, 4, 0, 4);
+    self.lovelaceButton.backgroundColor = [theme cardBackgroundColor];
+    [self.lovelaceButton addTarget:self action:@selector(lovelaceTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.bottomNavBar addSubview:self.lovelaceButton];
+
     // Jellyfin button (conditional, between settings and addRoom)
     if ([JeevesJellyfinClient sharedClient].enabled) {
         self.jellyfinButton = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -411,11 +458,17 @@ static const CGFloat kRoomTileSize = 90.0;
         [self.roomsCollectionView.topAnchor constraintEqualToAnchor:self.bottomNavBar.topAnchor],
         [self.roomsCollectionView.bottomAnchor constraintEqualToAnchor:self.bottomNavBar.bottomAnchor],
 
-        // Settings button (to the left of Jellyfin/+ button)
-        [self.settingsButton.trailingAnchor constraintEqualToAnchor:(self.jellyfinButton ? self.jellyfinButton.leadingAnchor : self.addRoomButton.leadingAnchor)],
+        // Settings button (to the left of the Dashboards button)
+        [self.settingsButton.trailingAnchor constraintEqualToAnchor:self.lovelaceButton.leadingAnchor],
         [self.settingsButton.topAnchor constraintEqualToAnchor:self.bottomNavBar.topAnchor],
         [self.settingsButton.bottomAnchor constraintEqualToAnchor:self.bottomNavBar.bottomAnchor],
         [self.settingsButton.widthAnchor constraintEqualToConstant:kRoomTileSize],
+
+        // Dashboards button (to the left of Jellyfin/+ button)
+        [self.lovelaceButton.trailingAnchor constraintEqualToAnchor:(self.jellyfinButton ? self.jellyfinButton.leadingAnchor : self.addRoomButton.leadingAnchor)],
+        [self.lovelaceButton.topAnchor constraintEqualToAnchor:self.bottomNavBar.topAnchor],
+        [self.lovelaceButton.bottomAnchor constraintEqualToAnchor:self.bottomNavBar.bottomAnchor],
+        [self.lovelaceButton.widthAnchor constraintEqualToConstant:kRoomTileSize],
 
         // Add Room button (far right)
         [self.addRoomButton.trailingAnchor constraintEqualToAnchor:self.bottomNavBar.trailingAnchor],
@@ -441,6 +494,7 @@ static const CGFloat kRoomTileSize = 90.0;
         self.homeButton = nil;
         self.settingsButton = nil;
         self.jellyfinButton = nil;
+        self.lovelaceButton = nil;
         self.addRoomButton = nil;
         self.roomsCollectionView = nil;
     }
@@ -459,6 +513,14 @@ static const CGFloat kRoomTileSize = 90.0;
 
 - (void)jellyfinSettingsChanged:(NSNotification *)note {
     [self rebuildBottomNavBar];
+}
+
+- (void)lovelaceTapped {
+    JeevesLovelaceViewController *lovelaceVC = [[JeevesLovelaceViewController alloc] init];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:lovelaceVC];
+    [[JeevesThemeManager sharedManager] applyThemeToNavigationBar:nav.navigationBar];
+    nav.modalPresentationStyle = UIModalPresentationFullScreen;
+    [self presentViewController:nav animated:YES completion:nil];
 }
 
 - (void)jellyfinTapped {
@@ -589,11 +651,8 @@ static const CGFloat kRoomTileSize = 90.0;
         [self showWeatherView];
         [self showSensorsPanel];
 
-        // Update UI with cached data if available, then check if refresh needed
-        if (self.forecastData && self.forecastData.count > 0) {
-            [self updateCurrentWeatherFromEntity];
-            [self updateForecastView];
-        }
+        // Sensor-based readings change often, so refresh them with every entity update
+        [self updateCurrentConditions];
         [self loadWeatherDataIfNeeded];
     } else if (!self.selectedRoom) {
         NSLog(@"[Dashboard] No selected room");
@@ -655,6 +714,19 @@ static const CGFloat kRoomTileSize = 90.0;
 }
 
 #pragma mark - Actions
+
+- (void)stopUpdates {
+    // Repeating timers retain their target, so the dashboard can't go away until they stop
+    [self.entityRefreshTimer invalidate];
+    self.entityRefreshTimer = nil;
+    [self.weatherRefreshTimer invalidate];
+    self.weatherRefreshTimer = nil;
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+- (void)showHome {
+    [self homeTapped];
+}
 
 - (void)homeTapped {
     self.isHomeSelected = YES;
@@ -738,6 +810,20 @@ static const CGFloat kRoomTileSize = 90.0;
         weatherY = 32;
     }
 
+    // Rebuild only when the layout or sources change: rebuilding on every refresh
+    // would cancel touches (long-press, taps on readings) in progress
+    JeevesWeatherSettings *weatherSettings = [JeevesWeatherSettings sharedSettings];
+    BOOL showsForecast = ([weatherSettings weatherEntityFromEntities:self.allEntities ?: @[]] != nil);
+    NSString *signature = [NSString stringWithFormat:@"%d|%@|%d|%@|%@", isPortrait,
+                           NSStringFromCGRect(CGRectMake(weatherX, weatherY, weatherWidth, weatherHeight)), showsForecast,
+                           weatherSettings.temperatureEntityId ?: @"", [weatherSettings.readingEntityIds componentsJoinedByString:@","]];
+    if (self.weatherView && [signature isEqualToString:self.weatherLayoutSignature]) {
+        self.weatherView.hidden = NO;
+        return;
+    }
+    self.weatherLayoutSignature = signature;
+    self.weatherShowsForecast = showsForecast;
+
     if (self.weatherView) {
         // Remove and recreate to ensure correct layout
         [self.weatherView removeFromSuperview];
@@ -750,6 +836,11 @@ static const CGFloat kRoomTileSize = 90.0;
     self.weatherView = [[UIView alloc] initWithFrame:CGRectMake(weatherX, weatherY, weatherWidth, weatherHeight)];
     self.weatherView.backgroundColor = [UIColor clearColor];
     [self.contentView addSubview:self.weatherView];
+
+    // Long-press the weather column to choose what it shows
+    UILongPressGestureRecognizer *customize = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleWeatherLongPress:)];
+    customize.minimumPressDuration = 0.5;
+    [self.weatherView addGestureRecognizer:customize];
 
     // === Landscape current weather card (left half) ===
     CGFloat halfWidth = (weatherWidth - spacing * 3) / 2; // spacing on left, middle, right
@@ -841,8 +932,38 @@ static const CGFloat kRoomTileSize = 90.0;
     self.forecastScrollView.backgroundColor = [UIColor clearColor];
     [self.weatherView addSubview:self.forecastScrollView];
 
+    // Sensor readings (from Home Weather settings) inside the conditions card
+    self.weatherReadingsView = [[UIScrollView alloc] init];
+    self.weatherReadingsView.showsVerticalScrollIndicator = NO;
+    [self.currentWeatherCard addSubview:self.weatherReadingsView];
+    NSMutableArray *tiles = [NSMutableArray array];
+    for (NSUInteger i = 0; i < weatherSettings.readingEntityIds.count; i++) {
+        UIView *tile = [[UIView alloc] init];
+        tile.tag = i;
+        tile.backgroundColor = [theme secondaryBackgroundColor];
+        tile.layer.cornerRadius = 8;
+        UILabel *name = [[UILabel alloc] init];
+        name.tag = 1;
+        name.font = [UIFont systemFontOfSize:13];
+        name.textColor = [theme secondaryTextColor];
+        [tile addSubview:name];
+        UILabel *value = [[UILabel alloc] init];
+        value.tag = 2;
+        value.font = [UIFont systemFontOfSize:22 weight:UIFontWeightMedium];
+        value.textColor = [theme textColor];
+        value.adjustsFontSizeToFitWidth = YES;
+        value.minimumScaleFactor = 0.6;
+        [tile addSubview:value];
+        // Tap a reading for its more-info screen
+        [tile addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(weatherReadingTapped:)]];
+        [self.weatherReadingsView addSubview:tile];
+        [tiles addObject:tile];
+    }
+    self.weatherReadingTiles = tiles;
+
     // Apply portrait/landscape visibility
     [self updateWeatherLayoutForPortrait:isPortrait];
+    [self updateCurrentConditions];
 }
 
 - (void)updateWeatherLayoutForPortrait:(BOOL)isPortrait {
@@ -858,7 +979,14 @@ static const CGFloat kRoomTileSize = 90.0;
     CGFloat cardX, cardY, cardWidth, cardHeight;
     CGFloat forecastX, forecastY, forecastWidth, forecastHeight;
 
-    if (isPortrait) {
+    if (!self.weatherShowsForecast) {
+        // No weather entity: the conditions card (temperature + readings) fills the column
+        cardX = spacing;
+        cardY = 0;
+        cardWidth = weatherWidth - spacing * 2;
+        cardHeight = weatherHeight;
+        forecastX = forecastY = forecastWidth = forecastHeight = 0;
+    } else if (isPortrait) {
         // Portrait: side-by-side layout (current weather left half, forecast right half)
         CGFloat halfWidth = (weatherWidth - spacing * 3) / 2;
         cardX = spacing;
@@ -886,6 +1014,10 @@ static const CGFloat kRoomTileSize = 90.0;
 
     self.currentWeatherCard.frame = CGRectMake(cardX, cardY, cardWidth, cardHeight);
     self.forecastScrollView.frame = CGRectMake(forecastX, forecastY, forecastWidth, forecastHeight);
+    self.forecastScrollView.hidden = !self.weatherShowsForecast;
+    self.currentWeatherIcon.hidden = !self.weatherShowsForecast;
+    self.currentMinMaxLabel.hidden = !self.weatherShowsForecast;
+    self.currentRainLabel.hidden = !self.weatherShowsForecast;
 
     // Update labels inside currentWeatherCard based on new card size
     CGFloat padding = 12;
@@ -916,6 +1048,17 @@ static const CGFloat kRoomTileSize = 90.0;
     // Rain
     self.currentRainLabel.frame = CGRectMake(padding, yPos, cardWidth - padding * 2, labelHeight);
     self.currentRainLabel.font = [UIFont systemFontOfSize:labelFontSize];
+
+    // Without a weather entity there's no min/max, condition or rain: readings go
+    // right below the temperature, and the condition line carries a hint if empty
+    if (!self.weatherShowsForecast) {
+        yPos = CGRectGetMaxY(self.currentTempLabel.frame) + 4;
+        self.currentConditionLabel.frame = CGRectMake(padding, yPos, cardWidth - padding * 2, labelHeight);
+        yPos += labelHeight + 4;
+    } else {
+        yPos += labelHeight + 6;
+    }
+    [self layoutWeatherReadingsInFrame:CGRectMake(padding, yPos, cardWidth - padding * 2, MAX(0, cardHeight - yPos - padding))];
 
     // Re-layout forecast cards if data exists
     if (self.forecastData && self.forecastData.count > 0) {
@@ -1594,6 +1737,12 @@ static const CGFloat kRoomTileSize = 90.0;
         }
     }
 
+    // Don't retry a failed or forecast-less fetch more than once a minute
+    if (needsFetch && self.lastWeatherFetchAttempt && [[NSDate date] timeIntervalSinceDate:self.lastWeatherFetchAttempt] < 60
+        && [[JeevesWeatherSettings sharedSettings] weatherEntityFromEntities:self.allEntities ?: @[]]) {
+        needsFetch = NO;
+    }
+
     if (needsFetch) {
         [self fetchWeatherData];
     } else {
@@ -1610,27 +1759,20 @@ static const CGFloat kRoomTileSize = 90.0;
         return;
     }
 
-    // Find weather entity
-    for (HAEntity *entity in self.allEntities) {
-        if ([entity.entityId hasPrefix:@"weather."]) {
-            self.weatherEntity = entity;
-            NSLog(@"[Dashboard] Found weather entity: %@", entity.entityId);
-            break;
-        }
-    }
-
+    // Weather entity per Home Weather settings (automatic, a specific one, or none)
+    self.weatherEntity = [[JeevesWeatherSettings sharedSettings] weatherEntityFromEntities:self.allEntities];
     if (!self.weatherEntity) {
-        NSLog(@"[Dashboard] No weather entity found");
-        if (self.currentConditionLabel) {
-            self.currentConditionLabel.text = @"No weather entity";
-        }
+        // Sensor-only setup: no forecast to fetch
+        self.forecastData = nil;
+        [self updateCurrentConditions];
         return;
     }
+    self.lastWeatherFetchAttempt = [NSDate date];
 
     NSLog(@"[Dashboard] Weather state: %@", self.weatherEntity.state);
 
     // Update current weather from entity state
-    [self updateCurrentWeatherFromEntity];
+    [self updateCurrentConditions];
 
     // First check if forecast is already in entity attributes (older HA versions)
     NSDictionary *attrs = self.weatherEntity.attributes;
@@ -1658,24 +1800,34 @@ static const CGFloat kRoomTileSize = 90.0;
     }];
 }
 
-- (void)updateCurrentWeatherFromEntity {
-    if (!self.weatherEntity) return;
-
+- (void)updateCurrentConditions {
     JeevesThemeManager *theme = [JeevesThemeManager sharedManager];
+    JeevesWeatherSettings *settings = [JeevesWeatherSettings sharedSettings];
 
-    // Temperature from attributes (safely handle NSNumber or NSString)
-    NSDictionary *attrs = self.weatherEntity.attributes;
-    id tempVal = attrs[@"temperature"];
-    NSString *tempStr = @"--°";
-    if ([tempVal isKindOfClass:[NSNumber class]] || [tempVal isKindOfClass:[NSString class]]) {
-        tempStr = [NSString stringWithFormat:@"%.0f°", [tempVal floatValue]];
-    }
+    // Look entities up on each refresh: allEntities is replaced every second
+    HAEntity *weather = [settings weatherEntityFromEntities:self.allEntities ?: @[]];
+    self.weatherEntity = weather;
+    HAEntity *temperatureSensor = settings.temperatureEntityId ? [self entityWithId:settings.temperatureEntityId] : nil;
+
+    // Temperature: the chosen sensor (e.g. a weather station), else the weather entity
+    id tempVal = temperatureSensor ? temperatureSensor.state : weather.attributes[@"temperature"];
+    NSNumber *temperature = JeevesNumericValue(tempVal);
+    NSString *tempStr = temperature ? [NSString stringWithFormat:@"%.0f°", temperature.doubleValue] : @"--°";
 
     // Update landscape card
     self.currentTempLabel.text = tempStr;
 
     // Update portrait bar
     self.portraitTempLabel.text = tempStr;
+
+    [self updateWeatherReadings];
+
+    if (!weather) {
+        // No weather entity: no condition, icon or forecast details
+        BOOL nothingConfigured = !settings.temperatureEntityId && settings.readingEntityIds.count == 0;
+        self.currentConditionLabel.text = nothingConfigured ? @"Long-press to choose weather sensors" : nil;
+        return;
+    }
 
     // Condition from state
     NSString *condition = self.weatherEntity.state;
@@ -1749,6 +1901,89 @@ static const CGFloat kRoomTileSize = 90.0;
         } else {
             self.currentRainLabel.text = @"";
         }
+    }
+}
+
+#pragma mark - Weather readings & customization
+
+- (void)layoutWeatherReadingsInFrame:(CGRect)frame {
+    self.weatherReadingsView.frame = frame;
+    NSUInteger count = self.weatherReadingTiles.count;
+    if (count == 0) return;
+
+    CGFloat gap = 8;
+    CGFloat tileHeight = 58;
+    NSInteger columns = MAX(1, MIN((NSInteger)count, (NSInteger)floor((frame.size.width + gap) / (140 + gap))));
+    CGFloat tileWidth = floor((frame.size.width - gap * (columns - 1)) / columns);
+    for (NSUInteger i = 0; i < count; i++) {
+        UIView *tile = self.weatherReadingTiles[i];
+        tile.frame = CGRectMake((i % columns) * (tileWidth + gap), (i / columns) * (tileHeight + gap), tileWidth, tileHeight);
+        [tile viewWithTag:1].frame = CGRectMake(10, 6, tileWidth - 20, 16);
+        [tile viewWithTag:2].frame = CGRectMake(10, 24, tileWidth - 20, 28);
+    }
+    NSInteger rows = (count + columns - 1) / columns;
+    self.weatherReadingsView.contentSize = CGSizeMake(frame.size.width, rows * tileHeight + (rows - 1) * gap);
+}
+
+- (void)updateWeatherReadings {
+    NSArray<NSString *> *ids = [JeevesWeatherSettings sharedSettings].readingEntityIds;
+    for (UIView *tile in self.weatherReadingTiles) {
+        if (tile.tag >= (NSInteger)ids.count) continue;
+        HAEntity *entity = [self entityWithId:ids[tile.tag]];
+        ((UILabel *)[tile viewWithTag:1]).text = entity.friendlyName ?: ids[tile.tag];
+        ((UILabel *)[tile viewWithTag:2]).text = entity ? [self weatherReadingTextForEntity:entity] : @"\u2014";
+    }
+}
+
+// e.g. "45%", "8.3 mph", "1013 hPa", "NW 315°", "On"
+- (NSString *)weatherReadingTextForEntity:(HAEntity *)entity {
+    NSString *state = entity.state ?: @"";
+    NSString *unit = [entity.attributes[@"unit_of_measurement"] isKindOfClass:[NSString class]] ? entity.attributes[@"unit_of_measurement"] : @"";
+    NSNumber *number = JeevesNumericValue(state);
+
+    // Wind direction in degrees reads better as a compass point
+    NSString *deviceClass = [entity.attributes[@"device_class"] isKindOfClass:[NSString class]] ? entity.attributes[@"device_class"] : @"";
+    BOOL isDirection = [deviceClass isEqualToString:@"wind_direction"] ||
+        ([unit isEqualToString:@"°"] && ([entity.entityId rangeOfString:@"dir"].location != NSNotFound ||
+                                         [entity.friendlyName rangeOfString:@"direction" options:NSCaseInsensitiveSearch].location != NSNotFound));
+    if (number && isDirection) {
+        return [NSString stringWithFormat:@"%@ %.0f°", JeevesCompassPoint(number.doubleValue), number.doubleValue];
+    }
+    if (!number) {
+        // on/off, unavailable, text states
+        return state.length > 0 ? [[[state substringToIndex:1] uppercaseString] stringByAppendingString:[state substringFromIndex:1]] : @"\u2014";
+    }
+    if (unit.length == 0) return state;
+    BOOL attachUnit = [unit hasPrefix:@"°"] || [unit isEqualToString:@"%"];
+    return [NSString stringWithFormat:@"%@%@%@", state, attachUnit ? @"" : @" ", unit];
+}
+
+- (void)weatherReadingTapped:(UITapGestureRecognizer *)gesture {
+    NSArray<NSString *> *ids = [JeevesWeatherSettings sharedSettings].readingEntityIds;
+    NSInteger index = gesture.view.tag;
+    if (index < (NSInteger)ids.count) {
+        [self presentMoreInfoForEntity:[self entityWithId:ids[index]] dashboard:nil];
+    }
+}
+
+- (void)handleWeatherLongPress:(UILongPressGestureRecognizer *)gesture {
+    if (gesture.state != UIGestureRecognizerStateBegan || self.presentedViewController) return;
+    JeevesWeatherSettingsViewController *settingsVC = [[JeevesWeatherSettingsViewController alloc] init];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:settingsVC];
+    [[JeevesThemeManager sharedManager] applyThemeToNavigationBar:nav.navigationBar];
+    nav.modalPresentationStyle = UIModalPresentationFullScreen;
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+- (void)weatherSettingsChanged:(NSNotification *)note {
+    // Sources changed: drop the old forecast and rebuild the column
+    self.forecastData = nil;
+    self.lastWeatherFetch = nil;
+    self.lastWeatherFetchAttempt = nil;
+    self.weatherLayoutSignature = nil;
+    if (self.isHomeSelected) {
+        [self showWeatherView];
+        [self fetchWeatherData];
     }
 }
 
@@ -1853,7 +2088,7 @@ static const CGFloat kRoomTileSize = 90.0;
         NSLog(@"[Dashboard] First forecast day: %@", forecast[0]);
         self.forecastData = forecast;
         [self updateForecastView];
-        [self updateCurrentWeatherFromEntity]; // Update min/max and rain from forecast
+        [self updateCurrentConditions]; // Update min/max and rain from forecast
     } else {
         NSLog(@"[Dashboard] No forecast data available - showing message");
         // Show a message in the forecast area
@@ -2261,6 +2496,10 @@ static const CGFloat kRoomTileSize = 90.0;
         NSLog(@"[Dashboard] cellForItemAtIndexPath: %ld", (long)indexPath.item);
 
         JeevesLightToggleCell *cell = [collectionView dequeueReusableCellWithReuseIdentifier:@"LightCell" forIndexPath:indexPath];
+        // Keep drag-for-brightness while the room fits on screen; once it scrolls,
+        // vertical drags must scroll (cards show a brightness slider instead)
+        CGFloat contentHeight = collectionView.collectionViewLayout.collectionViewContentSize.height;
+        cell.allowsBrightnessDrag = (contentHeight <= collectionView.bounds.size.height);
 
         // Defensive bounds check
         if (!self.selectedRoomLights || indexPath.item >= (NSInteger)self.selectedRoomLights.count) {
