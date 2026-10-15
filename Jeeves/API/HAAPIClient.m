@@ -410,4 +410,33 @@ NSString * const HAAPIClientConnectionStatusChangedNotification = @"HAAPIClientC
     [task resume];
 }
 
+- (void)sendRequestWithMethod:(NSString *)method
+                         path:(NSString *)path
+                         body:(id)body
+                   completion:(void (^)(NSInteger, id, NSError *))completion {
+    if (![self isConfigured]) {
+        NSError *error = [NSError errorWithDomain:@"HAAPIClient" code:1 userInfo:@{NSLocalizedDescriptionKey: @"Home Assistant isn't set up yet"}];
+        dispatch_async(dispatch_get_main_queue(), ^{ completion(0, nil, error); });
+        return;
+    }
+
+    NSString *urlString = [NSString stringWithFormat:@"%@%@", self.baseURL, path];
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:urlString]];
+    [request setHTTPMethod:method];
+    [request setValue:[NSString stringWithFormat:@"Bearer %@", self.accessToken] forHTTPHeaderField:@"Authorization"];
+    [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    if (body) {
+        [request setHTTPBody:[NSJSONSerialization dataWithJSONObject:body options:0 error:nil]];
+    }
+
+    NSURLSessionDataTask *task = [self.session dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        NSInteger status = [response isKindOfClass:[NSHTTPURLResponse class]] ? ((NSHTTPURLResponse *)response).statusCode : 0;
+        id json = data.length > 0 ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            completion(error ? 0 : status, json, error);
+        });
+    }];
+    [task resume];
+}
+
 @end

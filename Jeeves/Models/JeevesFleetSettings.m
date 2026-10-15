@@ -13,6 +13,8 @@ static NSString * const kDefaultsFleetEnabled = @"JeevesFleetEnabled";
 static NSString * const kDefaultsFleetCode    = @"JeevesFleetCode";
 static NSString * const kSnapshotKeys   = @"keys";   // keys the sender knows about
 static NSString * const kSnapshotValues = @"values"; // values of those it has set
+static NSString * const kSnapshotRooms  = @"rooms";  // JeevesRooms as plain dictionaries
+static NSString * const kProvisioningPath = @"Library/Jeeves/provision.plist"; // in the home directory
 
 @implementation JeevesFleetSettings
 
@@ -71,13 +73,50 @@ static NSString * const kSnapshotValues = @"values"; // values of those it has s
         id value = [d objectForKey:key];
         if (value) values[key] = value;
     }
-    return @{kSnapshotKeys: [[self class] sharedKeys], kSnapshotValues: values};
+    NSMutableArray *rooms = [NSMutableArray array];
+    for (JeevesRoom *room in [JeevesRoomManager sharedManager].rooms) {
+        [rooms addObject:@{@"roomId": room.roomId ?: @"",
+                           @"name": room.name ?: @"",
+                           @"iconType": @(room.iconType),
+                           @"entityIds": [room.entityIds copy] ?: @[],
+                           @"sortOrder": @(room.sortOrder)}];
+    }
+    return @{kSnapshotKeys: [[self class] sharedKeys], kSnapshotValues: values, kSnapshotRooms: rooms};
+}
+
+// Keyed archive of JeevesRooms from portable room dictionaries, or nil if invalid
++ (NSData *)archivedRoomsFromPortableRooms:(NSArray *)portable {
+    NSMutableArray<JeevesRoom *> *rooms = [NSMutableArray array];
+    for (NSDictionary *dict in portable) {
+        if (![dict isKindOfClass:[NSDictionary class]] || ![dict[@"name"] isKindOfClass:[NSString class]]) return nil;
+        JeevesRoom *room = [JeevesRoom roomWithName:dict[@"name"] iconType:[dict[@"iconType"] integerValue]];
+        if ([dict[@"roomId"] isKindOfClass:[NSString class]] && [dict[@"roomId"] length] > 0) room.roomId = dict[@"roomId"];
+        for (id entityId in ([dict[@"entityIds"] isKindOfClass:[NSArray class]] ? dict[@"entityIds"] : @[])) {
+            if ([entityId isKindOfClass:[NSString class]]) [room addEntityId:entityId];
+        }
+        room.sortOrder = [dict[@"sortOrder"] isKindOfClass:[NSNumber class]] ? [dict[@"sortOrder"] integerValue] : rooms.count;
+        [rooms addObject:room];
+    }
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    return [NSKeyedArchiver archivedDataWithRootObject:rooms];
+    #pragma clang diagnostic pop
 }
 
 - (BOOL)applySnapshot:(NSDictionary *)snapshot fromDevice:(NSString *)deviceName {
     NSArray *senderKeys = snapshot[kSnapshotKeys];
     NSDictionary *values = snapshot[kSnapshotValues];
     if (![senderKeys isKindOfClass:[NSArray class]] || ![values isKindOfClass:[NSDictionary class]]) return NO;
+
+    // Portable rooms (from JeevesPad Manager, or a newer iPad) replace the archived ones
+    if ([snapshot[kSnapshotRooms] isKindOfClass:[NSArray class]]) {
+        NSData *archived = [[self class] archivedRoomsFromPortableRooms:snapshot[kSnapshotRooms]];
+        if (!archived) return NO;
+        NSMutableDictionary *merged = [values mutableCopy];
+        merged[@"JeevesRooms"] = archived;
+        values = merged;
+        if (![senderKeys containsObject:@"JeevesRooms"]) senderKeys = [senderKeys arrayByAddingObject:@"JeevesRooms"];
+    }
 
     // Only touch keys both sides share: a sender running an older version mustn't
     // erase settings it doesn't know about, and unknown keys are ignored
@@ -102,6 +141,28 @@ static NSString * const kSnapshotValues = @"values"; // values of those it has s
     NSLog(@"[Fleet] Applied settings from %@", deviceName);
     [[NSNotificationCenter defaultCenter] postNotificationName:JeevesFleetSettingsAppliedNotification object:deviceName];
     return YES;
+}
+
+- (void)applyProvisioningFileIfPresent {
+    NSString *path = [NSHomeDirectory() stringByAppendingPathComponent:kProvisioningPath];
+    NSData *data = [NSData dataWithContentsOfFile:path];
+    if (!data) return;
+    // Delete first: it contains the Home Assistant token, and a bad file mustn't be retried forever
+    [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+
+    NSDictionary *provision = [NSPropertyListSerialization propertyListWithData:data options:NSPropertyListImmutable format:NULL error:nil];
+    if (![provision isKindOfClass:[NSDictionary class]]) {
+        NSLog(@"[Fleet] Ignoring invalid provisioning file");
+        return;
+    }
+    if ([provision[@"fleetCode"] isKindOfClass:[NSString class]]) self.fleetCode = provision[@"fleetCode"];
+    if ([provision[@"fleetEnabled"] isKindOfClass:[NSNumber class]]) self.enabled = [provision[@"fleetEnabled"] boolValue];
+    NSString *from = [provision[@"from"] isKindOfClass:[NSString class]] ? provision[@"from"] : @"JeevesPad Manager";
+    if ([provision[@"settings"] isKindOfClass:[NSDictionary class]]) {
+        [self applySnapshot:provision[@"settings"] fromDevice:from];
+    }
+    [[NSUserDefaults standardUserDefaults] synchronize];
+    NSLog(@"[Fleet] Applied provisioning from %@", from);
 }
 
 @end

@@ -1,0 +1,48 @@
+{
+  "config": {
+    "step": {
+      "hassio_confirm": {
+        "title": "wallPads",
+        "description": "Add the wallPads managed by the JeevesPad Manager app to Home Assistant?"
+      },
+      "user": {
+        "title": "Connect to JeevesPad Manager",
+        "description": "Usually this is set up automatically once the JeevesPad Manager app is running. To connect by hand, use the app's port and API key (in the app's data folder, file api_key).",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "api_key": "API key"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Couldn't reach the JeevesPad Manager app. Make sure it's running.",
+      "invalid_auth": "The JeevesPad Manager app rejected the API key."
+    },
+    "abort": {
+      "already_configured": "wallPads are already set up."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "online": { "name": "Jeeves running" },
+      "charging": { "name": "Charging" },
+      "dimmed": { "name": "Screen dimmed" },
+      "ha_connected": { "name": "Home Assistant connection" }
+    },
+    "sensor": {
+      "battery": { "name": "Battery" },
+      "idle_time": { "name": "Time since last touch" }
+    },
+    "number": {
+      "brightness": { "name": "Screen brightness" }
+    },
+    "button": {
+      "identify": { "name": "Identify" },
+      "go_home": { "name": "Go to Home" },
+      "wake": { "name": "Wake screen" },
+      "reload": { "name": "Reload screen" },
+      "restart_app": { "name": "Restart Jeeves" }
+    }
+  }
+}

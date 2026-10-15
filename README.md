@@ -4,8 +4,6 @@ A native iOS app for controlling Home Assistant, designed for jailbroken devices
 
 **Repository:** [github.com/JonnyFunFun/JeevesPad](https://github.com/JonnyFunFun/JeevesPad) · [Issues](https://github.com/JonnyFunFun/JeevesPad/issues)
 
-https://github.com/user-attachments/assets/7f0fc34f-93f5-4bdb-b7bc-e2405993784f
-
 ![iOS 9.3.5](https://img.shields.io/badge/iOS-9.3.5-blue)
 ![Objective-C](https://img.shields.io/badge/language-Objective--C-orange)
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-REST%20API-41BDF5)
@@ -36,6 +34,8 @@ If you're coming from HomeButler, see [Upgrading from HomeButler](#upgrading-fro
 - **Jellyfin**: Browse your libraries and play to (and remote-control) any Jellyfin client
 - **Battery reporting**: Reports battery level to Home Assistant, e.g. to drive a smart plug that keeps the iPad's battery healthy
 - **Fleets**: iPads running Jeeves find each other on the network and share settings; `deploy_fleet.sh` updates them all at once
+- **Home Assistant app and integration**: Manage every wall panel from Home Assistant, edit their dashboards, update them and set up new iPads; each panel becomes a Home Assistant device
+- **Presence**: Register household phones with Home Assistant so [Bermuda](https://github.com/agittins/bermuda) can track which room they're in
 - **Idle mode**: Returns to Home after a few minutes without a touch, then dims the screen (without turning it off) until the next touch — or movement in front of the camera
 - **Dark theme**: Designed for always-on displays
 
@@ -211,6 +211,35 @@ The receiving iPad applies the settings straight away and shows a brief notice.
 
 Settings include your Home Assistant token, so everything sent between iPads is encrypted and authenticated with the fleet code (AES-256 and HMAC-SHA256, with a key derived by PBKDF2). iPads without the same code can neither change this iPad's settings nor read them. Requests are rejected if the two iPads' clocks differ by more than 10 minutes.
 
+## Home Assistant App and Integration
+
+Manage every wallPad (a wall-mounted iPad running Jeeves) from Home Assistant. This repository holds two pieces:
+
+- **JeevesPad Manager**, a Home Assistant app (formerly called an add-on), in [`jeevespad/`](jeevespad). It adds a **wallPads** page to the sidebar for status, settings, dashboard editing (Home cards, rooms, card names and sizes), copying settings between wallPads, remote commands, app updates, SSH maintenance, and setting up newly jailbroken iPads.
+- **JeevesPad**, an integration you can install with HACS, in [`custom_components/jeevespad/`](custom_components/jeevespad). It makes each wallPad a Home Assistant device: battery, charging, screen dimmed, idle time, a screen brightness slider for automations, and identify / go Home / wake / reload / restart buttons.
+
+HACS only installs integrations (and dashboard cards, themes and the like), not apps, so they're installed separately:
+
+1. **App:** Settings → Apps → App store → ⋮ → Repositories, add `https://github.com/JonnyFunFun/JeevesPad`, then install **JeevesPad Manager**. See its [documentation](jeevespad/DOCS.md).
+2. **Integration:** HACS → ⋮ → Custom repositories, add `https://github.com/JonnyFunFun/JeevesPad` as an *Integration*, install **JeevesPad** and restart Home Assistant. Home Assistant then offers to add the wallPads found by the app.
+
+The app reaches wallPads two ways: through Jeeves's fleet protocol (the same encrypted connection iPads use to share settings, so wallPads need fleet sync on and the app's fleet code; **Enrol in this fleet** sets that up over SSH), and over SSH for installing, updating, restarting and rebooting. To set up a new iPad, the app installs a `Jeeves.ipa` you upload (or downloads it from a GitHub release); it can't build Jeeves itself.
+
+## Presence: Tracking Phones with Bermuda
+
+[Bermuda](https://github.com/agittins/bermuda) tracks Bluetooth devices room by room using your Bluetooth proxies. Phones change their Bluetooth address every few minutes, so Home Assistant needs each phone's Identity Resolving Key (IRK) to recognise it; Bermuda picks up every phone registered with Home Assistant's **Private BLE Device** integration. **Settings → Presence** does that registration from the panel:
+
+- **Pair a Phone with This Panel** (easiest): enter a name and tap **Start Pairing**. The panel shows up as a Bluetooth accessory called "Jeeves Pairing". On an iPhone, connect to it with a Bluetooth app such as LightBlue or nRF Connect and read its characteristic, then tap **Pair**; on Android, pair from Settings → Bluetooth → Pair new device. The phone hands over its key while pairing; Jeeves reads it from the iPad's keychain and registers the phone. Afterwards the phone can forget "Jeeves Pairing" and tracking keeps working. (If something goes wrong, `/var/mobile/Library/Logs/Jeeves-pairing.log` describes what Jeeves found, without key values.)
+- **Add a Phone with Its Bluetooth Key**: enter a name and the phone's key (hex, with or without an `irk:` prefix, or base64 as a Mac's Keychain shows it). Keep the phone unlocked and near a Bluetooth proxy: Home Assistant only accepts a key for a phone it can currently see. Jeeves names the device in Home Assistant, and Bermuda uses that name.
+- **Rename** or **Stop Tracking** registered phones. The list is stored in Home Assistant, so every panel shows the same phones.
+- **Android phones**: many stop advertising when the screen is off, so the Home Assistant app's **BLE Transmitter** sensor (an iBeacon Bermuda tracks directly) works better; the screen explains how to turn it on.
+
+A phone only shares its key with devices it pairs with. Ways to get it: a Mac the iPhone is paired with (Keychain Access, "Remote IRK"), an ESP32 running [ESPresense](https://espresense.com) or [IRK Capture](https://github.com/DerekSeaman/irk-capture), or a Linux computer the phone is paired with (`/var/lib/bluetooth/<adapter>/<phone>/info`). See Bermuda's [guide to getting IRKs](https://github.com/agittins/bermuda/wiki/How-to-get-the-IRK-(Identity-Resolving-Keys)-for-iOS,-Android-etc).
+
+Pairing needs the keychain permission that `deploy.sh`, `deploy_fleet.sh` and `build_ipa.sh` sign Jeeves with (see Security Notes); an IPA re-signed by other tools can still add phones by key.
+
+Registering phones uses Home Assistant's admin-only configuration API, so Jeeves's access token must belong to an administrator.
+
 ## Home Assistant Dashboards
 
 Tap **Dashboards** in the bottom bar to show one of your Home Assistant (Lovelace) dashboards. Home Assistant's own dashboard UI needs iOS 12 or newer, so instead Jeeves fetches the dashboard's configuration and rebuilds it with native Jeeves cards, scaled to the screen. Cards work like everywhere else in Jeeves: tap to toggle, long-press for more-info, drag for brightness, inline light controls.
@@ -351,6 +380,8 @@ Jeeves talks to Home Assistant's REST API with Bearer token authentication:
 | `POST /api/services/{domain}/{service}` | Control entities |
 | `POST /api/services/weather/get_forecasts` | Weather forecast |
 | `POST /api/webhook/jeeves_<id>_battery` | Battery reporting |
+| `GET/DELETE /api/config/config_entries/entry`, `POST /api/config/config_entries/flow` | Presence: list, remove and register phones (Private BLE Device; admin token) |
+| WebSocket: `config_entries/update`, `config/device_registry/list`, `config/device_registry/update` | Presence: name registered phones |
 
 Jellyfin uses the server's REST API (`/Users/AuthenticateByName`, `/UserViews`, `/Items`, `/Sessions`, …), controlling playback through the Sessions API.
 
@@ -398,6 +429,7 @@ The app icon is drawn in `tools/AppIcon.svg`; after editing it, run `tools/rende
 ## Security Notes
 
 - The Home Assistant token and Jellyfin access token are stored in the app's preferences (`NSUserDefaults`); the Jellyfin password is not stored
+- To read paired phones' Bluetooth keys, Jeeves is signed with access to the iPad's `apple` keychain group (`entitlements.plist`), where iOS's Bluetooth service keeps them. That group also holds other Apple services' items; Jeeves only reads `MobileBluetooth` items, and only while pairing
 - `NSAllowsArbitraryLoads` is enabled so the app can reach servers over plain HTTP on your network
 - Both API clients accept any TLS certificate, so self-signed certificates work — but this also means HTTPS connections aren't protected against interception. Prefer using Jeeves on a trusted network.
 

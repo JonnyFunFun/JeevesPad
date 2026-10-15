@@ -57,6 +57,11 @@
 		0051 /* JeevesFleetSettings.m in Sources */ = {isa = PBXBuildFile; fileRef = 1050; };
 		0052 /* JeevesFleetService.m in Sources */ = {isa = PBXBuildFile; fileRef = 1051; };
 		0053 /* JeevesFleetViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1052; };
+		0054 /* JeevesPhoneRegistry.m in Sources */ = {isa = PBXBuildFile; fileRef = 1053; };
+		0055 /* JeevesPresenceViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1054; };
+		0056 /* JeevesAddPhoneViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1055; };
+		0057 /* JeevesPhonePairer.m in Sources */ = {isa = PBXBuildFile; fileRef = 1056; };
+		0058 /* JeevesPairPhoneViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1057; };
 		0039 /* JeevesCardSettings.m in Sources */ = {isa = PBXBuildFile; fileRef = 1038; };
 		0017 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2001; };
 		0018 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 2002; };
@@ -163,6 +168,16 @@
 		1051H /* JeevesFleetService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesFleetService.h; sourceTree = "<group>"; };
 		1052 /* JeevesFleetViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesFleetViewController.m; sourceTree = "<group>"; };
 		1052H /* JeevesFleetViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesFleetViewController.h; sourceTree = "<group>"; };
+		1053 /* JeevesPhoneRegistry.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesPhoneRegistry.m; sourceTree = "<group>"; };
+		1053H /* JeevesPhoneRegistry.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesPhoneRegistry.h; sourceTree = "<group>"; };
+		1054 /* JeevesPresenceViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesPresenceViewController.m; sourceTree = "<group>"; };
+		1054H /* JeevesPresenceViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesPresenceViewController.h; sourceTree = "<group>"; };
+		1055 /* JeevesAddPhoneViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesAddPhoneViewController.m; sourceTree = "<group>"; };
+		1055H /* JeevesAddPhoneViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesAddPhoneViewController.h; sourceTree = "<group>"; };
+		1056 /* JeevesPhonePairer.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesPhonePairer.m; sourceTree = "<group>"; };
+		1056H /* JeevesPhonePairer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesPhonePairer.h; sourceTree = "<group>"; };
+		1057 /* JeevesPairPhoneViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesPairPhoneViewController.m; sourceTree = "<group>"; };
+		1057H /* JeevesPairPhoneViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesPairPhoneViewController.h; sourceTree = "<group>"; };
 		1038 /* JeevesCardSettings.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = JeevesCardSettings.m; sourceTree = "<group>"; };
 		1038H /* JeevesCardSettings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JeevesCardSettings.h; sourceTree = "<group>"; };
 		2001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -251,6 +266,8 @@
 				1005H /* HAAPIClient.h */,
 				1051 /* JeevesFleetService.m */,
 				1051H /* JeevesFleetService.h */,
+				1053 /* JeevesPhoneRegistry.m */,
+				1053H /* JeevesPhoneRegistry.h */,
 				1041 /* HAWebSocketClient.m */,
 				1041H /* HAWebSocketClient.h */,
 				1040 /* JeevesWebSocket.m */,
@@ -271,6 +288,8 @@
 				1026H /* UIViewController+JeevesRefresh.h */,
 				1049 /* JeevesFleetCrypto.m */,
 				1049H /* JeevesFleetCrypto.h */,
+				1056 /* JeevesPhonePairer.m */,
+				1056H /* JeevesPhonePairer.h */,
 				1048 /* JeevesMotionDetector.m */,
 				1048H /* JeevesMotionDetector.h */,
 				1047 /* JeevesIdleManager.m */,
@@ -321,6 +340,12 @@
 				1036H /* JeevesEntityMoreInfoViewController.h */,
 				1052 /* JeevesFleetViewController.m */,
 				1052H /* JeevesFleetViewController.h */,
+				1054 /* JeevesPresenceViewController.m */,
+				1054H /* JeevesPresenceViewController.h */,
+				1055 /* JeevesAddPhoneViewController.m */,
+				1055H /* JeevesAddPhoneViewController.h */,
+				1057 /* JeevesPairPhoneViewController.m */,
+				1057H /* JeevesPairPhoneViewController.h */,
 				1046 /* JeevesWeatherSettingsViewController.m */,
 				1046H /* JeevesWeatherSettingsViewController.h */,
 				1045 /* JeevesEntityPickerViewController.m */,
@@ -476,6 +501,11 @@
 				0051 /* JeevesFleetSettings.m in Sources */,
 				0052 /* JeevesFleetService.m in Sources */,
 				0053 /* JeevesFleetViewController.m in Sources */,
+				0054 /* JeevesPhoneRegistry.m in Sources */,
+				0055 /* JeevesPresenceViewController.m in Sources */,
+				0056 /* JeevesAddPhoneViewController.m in Sources */,
+				0057 /* JeevesPhonePairer.m in Sources */,
+				0058 /* JeevesPairPhoneViewController.m in Sources */,
 				0039 /* JeevesCardSettings.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

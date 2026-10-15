@@ -24,12 +24,14 @@ Jeeves_FILES = Jeeves/main.m \
 	Jeeves/API/JeevesWebSocket.m \
 	Jeeves/API/HAWebSocketClient.m \
 	Jeeves/API/JeevesFleetService.m \
+	Jeeves/API/JeevesPhoneRegistry.m \
 	Jeeves/API/JeevesBatteryReporter.m \
 	Jeeves/API/JeevesJellyfinClient.m \
 	Jeeves/Helpers/UIViewController+JeevesRefresh.m \
 	Jeeves/Helpers/JeevesIdleManager.m \
 	Jeeves/Helpers/JeevesMotionDetector.m \
 	Jeeves/Helpers/JeevesFleetCrypto.m \
+	Jeeves/Helpers/JeevesPhonePairer.m \
 	Jeeves/Theme/JeevesThemeManager.m \
 	Jeeves/Views/EntityCell.m \
 	Jeeves/Views/JeevesRoomCell.m \
@@ -58,9 +60,12 @@ Jeeves_FILES = Jeeves/main.m \
 	Jeeves/ViewControllers/JeevesEntityPickerViewController.m \
 	Jeeves/ViewControllers/JeevesWeatherSettingsViewController.m \
 	Jeeves/ViewControllers/JeevesFleetViewController.m \
+	Jeeves/ViewControllers/JeevesPresenceViewController.m \
+	Jeeves/ViewControllers/JeevesAddPhoneViewController.m \
+	Jeeves/ViewControllers/JeevesPairPhoneViewController.m \
 	Jeeves/ViewControllers/JeevesEntityMoreInfoViewController.m
 
-Jeeves_FRAMEWORKS = UIKit Foundation CFNetwork CoreGraphics QuartzCore AVFoundation CoreMedia CoreVideo
+Jeeves_FRAMEWORKS = UIKit Foundation CFNetwork CoreGraphics QuartzCore AVFoundation CoreMedia CoreVideo CoreBluetooth Security
 
 Jeeves_CFLAGS = -fobjc-arc -fno-modules -fno-threadsafe-statics -Wno-deprecated-module-dot-map -Wno-nullability-completeness -Wno-nullability -IJeeves -IJeeves/API -IJeeves/Models -IJeeves/Views -IJeeves/ViewControllers -IJeeves/Theme -IJeeves/Helpers
 Jeeves_USE_MODULES = 0

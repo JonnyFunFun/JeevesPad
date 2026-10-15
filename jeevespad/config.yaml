@@ -1,0 +1,41 @@
+name: JeevesPad Manager
+version: "0.1.0"
+slug: jeevespad
+description: >-
+  Manage every Jeeves wall panel (wallPad) from Home Assistant: status, settings,
+  dashboards, app updates, and setting up newly jailbroken iPads.
+url: https://github.com/JonnyFunFun/JeevesPad/tree/main/jeevespad
+arch:
+  - amd64
+  - aarch64
+init: false
+startup: application
+boot: auto
+stage: experimental
+
+# Bonjour discovery of wallPads (mDNS) and connections to them need the LAN
+host_network: true
+ingress: true
+ingress_port: 0
+panel_icon: mdi:tablet-dashboard
+panel_title: wallPads
+# Entity lists for the dashboard editor
+homeassistant_api: true
+# Ingress port lookup, and discovery for the JeevesPad integration
+hassio_api: true
+discovery:
+  - jeevespad
+backup_exclude:
+  - "payload/*"
+
+options:
+  ssh_password: alpine
+  extra_hosts: []
+schema:
+  fleet_code: "password?"
+  ssh_password: password
+  wallpad_ha_url: "str?"
+  wallpad_ha_token: "password?"
+  extra_hosts:
+    - str
+  app_package_url: "url?"

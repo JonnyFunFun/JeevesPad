@@ -1,7 +1,12 @@
 #import "JeevesFleetService.h"
 #import "JeevesFleetSettings.h"
 #import "JeevesFleetCrypto.h"
+#import "JeevesBatteryReporter.h"
+#import "JeevesIdleManager.h"
+#import "HAAPIClient.h"
+#import "AppDelegate.h"
 #import <UIKit/UIKit.h>
+#import <sys/sysctl.h>
 
 NSString * const JeevesFleetServiceType = @"_jeeves._tcp.";
 NSString * const JeevesFleetPeersDidChangeNotification = @"JeevesFleetPeersDidChangeNotification";
@@ -233,6 +238,7 @@ static NSMutableSet<JeevesFleetConnection *> *ActiveConnections(void) {
 
 - (void)updateTXTRecord {
     NSDictionary *txt = @{@"app": [@"Jeeves" dataUsingEncoding:NSUTF8StringEncoding],
+                          @"id": [[JeevesBatteryReporter sharedReporter].instanceIdentifier dataUsingEncoding:NSUTF8StringEncoding],
                           @"ver": [[self appVersion] dataUsingEncoding:NSUTF8StringEncoding],
                           @"sync": [([JeevesFleetSettings sharedSettings].enabled ? @"1" : @"0") dataUsingEncoding:NSUTF8StringEncoding]};
     [self.publishedService setTXTRecordData:[NSNetService dataFromTXTRecordDictionary:txt]];
@@ -364,7 +370,68 @@ static NSMutableSet<JeevesFleetConnection *> *ActiveConnections(void) {
     if ([type isEqualToString:@"pull"]) {
         return [self sealedMessage:@{@"ok": @YES, @"settings": [settings snapshot]} type:@"result" crypto:crypto];
     }
+    if ([type isEqualToString:@"status"]) {
+        return [self sealedMessage:@{@"ok": @YES, @"status": [self deviceStatus]} type:@"result" crypto:crypto];
+    }
+    if ([type isEqualToString:@"command"]) {
+        NSString *command = [payload[@"command"] isKindOfClass:[NSString class]] ? payload[@"command"] : @"";
+        id<UIApplicationDelegate> delegate = [UIApplication sharedApplication].delegate;
+        if (![delegate respondsToSelector:@selector(performRemoteCommand:value:)]) return [self errorResponse:@"Commands aren't available"];
+        NSString *commandError = [(AppDelegate *)delegate performRemoteCommand:command value:payload[@"value"]];
+        if (commandError) return [self errorResponse:commandError];
+        return [self sealedMessage:@{@"ok": @YES} type:@"result" crypto:crypto];
+    }
     return [self errorResponse:@"Unknown request"];
+}
+
+#pragma mark - Status
+
+// Requests this version understands, so managers can tell what an iPad supports
++ (NSArray<NSString *> *)features {
+    return @[@"push", @"pull", @"status", @"command", @"rooms", @"provisioning"];
+}
+
+- (NSString *)hardwareModel {
+    size_t size = 0;
+    sysctlbyname("hw.machine", NULL, &size, NULL, 0);
+    if (size == 0) return @"";
+    char *machine = malloc(size);
+    sysctlbyname("hw.machine", machine, &size, NULL, 0);
+    NSString *model = [NSString stringWithUTF8String:machine] ?: @"";
+    free(machine);
+    return model;
+}
+
+- (NSDictionary *)deviceStatus {
+    UIDevice *device = [UIDevice currentDevice];
+    device.batteryMonitoringEnabled = YES;
+    NSString *batteryState = @"unknown";
+    switch (device.batteryState) {
+        case UIDeviceBatteryStateUnplugged: batteryState = @"unplugged"; break;
+        case UIDeviceBatteryStateCharging:  batteryState = @"charging"; break;
+        case UIDeviceBatteryStateFull:      batteryState = @"full"; break;
+        default: break;
+    }
+    JeevesIdleManager *idle = [JeevesIdleManager sharedManager];
+    HAAPIClient *client = [HAAPIClient sharedClient];
+    NSProcessInfo *process = [NSProcessInfo processInfo];
+    return @{@"id": [JeevesBatteryReporter sharedReporter].instanceIdentifier ?: @"",
+             @"name": [self deviceName],
+             @"model": [self hardwareModel],
+             @"systemVersion": device.systemVersion ?: @"",
+             @"appVersion": [self appVersion],
+             @"appBuild": [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"] ?: @"",
+             @"battery": @(device.batteryLevel), // 0–1, or -1 if unknown
+             @"batteryState": batteryState,
+             @"brightness": @([UIScreen mainScreen].brightness),
+             @"dimmed": @(idle.dimmed),
+             @"idleSeconds": @(idle.idleTime),
+             @"homeTimeout": @(idle.homeTimeout),
+             @"haConfigured": @([client isConfigured]),
+             @"haConnected": @(client.isConnected),
+             @"systemUptime": @(process.systemUptime),
+             @"physicalMemory": @(process.physicalMemory),
+             @"features": [[self class] features]};
 }
 
 #pragma mark - Sealing

@@ -6,6 +6,7 @@
 #import "JeevesWeatherSettingsViewController.h"
 #import "JeevesIdleManager.h"
 #import "JeevesFleetViewController.h"
+#import "JeevesPresenceViewController.h"
 #import "JeevesMotionDetector.h"
 #import "JeevesJellyfinClient.h"
 #import "JeevesJellyfinTarget.h"
@@ -242,6 +243,15 @@
     fleetButton.titleLabel.font = [UIFont systemFontOfSize:16];
     [fleetButton addTarget:self action:@selector(fleetTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.contentView addSubview:fleetButton];
+    yOffset += 54;
+
+    UIButton *presenceButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    presenceButton.frame = CGRectMake(padding, yOffset, self.view.bounds.size.width - 2 * padding, 44);
+    [presenceButton setTitle:@"Presence (Track Phones with Bermuda)\u2026" forState:UIControlStateNormal];
+    [presenceButton setTitleColor:[theme accentColor] forState:UIControlStateNormal];
+    presenceButton.titleLabel.font = [UIFont systemFontOfSize:16];
+    [presenceButton addTarget:self action:@selector(presenceTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.contentView addSubview:presenceButton];
     yOffset += 54;
 
     // --- Jellyfin section ---
@@ -549,6 +559,13 @@
 - (void)fleetTapped {
     [self dismissKeyboard];
     [self.navigationController pushViewController:[[JeevesFleetViewController alloc] init] animated:YES];
+}
+
+#pragma mark - Presence
+
+- (void)presenceTapped {
+    [self dismissKeyboard];
+    [self.navigationController pushViewController:[[JeevesPresenceViewController alloc] init] animated:YES];
 }
 
 #pragma mark - Home weather

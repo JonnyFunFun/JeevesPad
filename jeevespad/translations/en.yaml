@@ -1,0 +1,33 @@
+configuration:
+  fleet_code:
+    name: Fleet code
+    description: >-
+      The fleet code every wallPad uses to encrypt settings (Settings → Fleet on the
+      iPad). Leave empty to have the app generate one; it's shown on the Fleet page,
+      and wallPads set up or enrolled by the app get it automatically.
+  ssh_password:
+    name: Root password
+    description: >-
+      SSH root password of the wallPads, used to install Jeeves and run maintenance.
+      Jailbroken iPads start with "alpine"; you can also enter a password when setting
+      up an iPad.
+  wallpad_ha_url:
+    name: Home Assistant URL for wallPads
+    description: >-
+      The address wallPads use to reach Home Assistant, such as
+      http://192.168.1.10:8123. Used when setting up new iPads.
+  wallpad_ha_token:
+    name: Access token for wallPads
+    description: >-
+      A long-lived access token (your profile → Security) for newly set-up wallPads.
+      Use an administrator's token if you want to register phones from the panels.
+  extra_hosts:
+    name: Extra wallPad addresses
+    description: >-
+      IP addresses or host names of wallPads to manage over SSH even when Bonjour
+      can't find them (for example on another VLAN).
+  app_package_url:
+    name: Jeeves app package URL
+    description: >-
+      Where to download Jeeves.ipa from. Defaults to the latest GitHub release; you can
+      also upload a package on the App page.

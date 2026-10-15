@@ -19,10 +19,18 @@ extern NSString * const JeevesFleetConfigurationDidChangeNotification;
 
 + (NSArray<NSString *> *)sharedKeys;
 
-// Shared settings as a property-list dictionary
+// Shared settings as a property-list dictionary: {keys, values, rooms}. `rooms` repeats
+// JeevesRooms (a keyed archive) as plain dictionaries {roomId, name, iconType,
+// entityIds, sortOrder}, so tools that can't read keyed archives can edit rooms.
 - (NSDictionary *)snapshot;
-// Replaces this iPad's shared settings and reloads everything that caches them
+// Replaces the settings listed in the snapshot's `keys` (removing listed keys that have
+// no value) and reloads everything that caches them. A `rooms` array replaces JeevesRooms.
 - (BOOL)applySnapshot:(NSDictionary *)snapshot fromDevice:(NSString *)deviceName;
+
+// Applies (then deletes) ~/Library/Jeeves/provision.plist, which the JeevesPad Manager
+// app writes over SSH when it installs or enrols this iPad: {fleetEnabled, fleetCode,
+// settings (a snapshot), from}. Call at launch, before the UI reads any settings.
+- (void)applyProvisioningFileIfPresent;
 
 @end
 

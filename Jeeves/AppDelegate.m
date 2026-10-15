@@ -40,6 +40,8 @@ static NSString * const kLegacyPreferencesDomain = @"com.homebutler.HomeButler";
 
     // Must run before anything reads NSUserDefaults
     [self migrateLegacySettings];
+    // Settings left by the JeevesPad Manager app when it installed or enrolled this iPad
+    [[JeevesFleetSettings sharedSettings] applyProvisioningFileIfPresent];
 
     self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
 
@@ -115,6 +117,14 @@ static NSString * const kLegacyPreferencesDomain = @"com.homebutler.HomeButler";
 
 // Another iPad's settings were applied: rebuild the UI so every screen picks them up
 - (void)fleetSettingsApplied:(NSNotification *)note {
+    NSString *source = [note.object isKindOfClass:[NSString class]] ? note.object : @"another iPad";
+    [self rebuildInterfaceWithNoticeTitle:@"Settings Updated"
+                                  message:[NSString stringWithFormat:@"Settings were copied from %@.", source]];
+}
+
+// Replaces the whole UI (so every screen re-reads its settings), optionally showing
+// a brief notice that closes itself (nobody may be at the wall panel to dismiss it)
+- (void)rebuildInterfaceWithNoticeTitle:(NSString *)title message:(NSString *)message {
     UINavigationController *oldNav = (UINavigationController *)self.window.rootViewController;
     void (^replace)(void) = ^{
         if ([oldNav isKindOfClass:[UINavigationController class]]) {
@@ -122,23 +132,48 @@ static NSString * const kLegacyPreferencesDomain = @"com.homebutler.HomeButler";
             if ([oldRoot isKindOfClass:[JeevesDashboardViewController class]]) [oldRoot stopUpdates];
         }
         self.window.rootViewController = [self makeRootViewController];
-
-        // Brief notice that closes itself (nobody may be at the wall panel to dismiss it)
-        NSString *source = [note.object isKindOfClass:[NSString class]] ? note.object : @"another iPad";
-        UIAlertController *notice = [UIAlertController alertControllerWithTitle:@"Settings Updated"
-                                                                        message:[NSString stringWithFormat:@"Settings were copied from %@.", source]
-                                                                 preferredStyle:UIAlertControllerStyleAlert];
-        UIViewController *root = self.window.rootViewController;
-        [root presentViewController:notice animated:YES completion:nil];
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            if (root.presentedViewController == notice) [notice dismissViewControllerAnimated:YES completion:nil];
-        });
+        if (title) [self showNoticeWithTitle:title message:message duration:3];
     };
     if (oldNav.presentedViewController) {
         [oldNav dismissViewControllerAnimated:NO completion:replace];
     } else {
         replace();
     }
+}
+
+- (void)showNoticeWithTitle:(NSString *)title message:(NSString *)message duration:(NSTimeInterval)duration {
+    UIViewController *presenter = self.window.rootViewController;
+    while (presenter.presentedViewController) presenter = presenter.presentedViewController;
+    if ([presenter isKindOfClass:[UIAlertController class]]) return; // don't stack notices
+
+    UIAlertController *notice = [UIAlertController alertControllerWithTitle:title message:message
+                                                             preferredStyle:UIAlertControllerStyleAlert];
+    [presenter presentViewController:notice animated:YES completion:nil];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(duration * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (notice.presentingViewController) [notice dismissViewControllerAnimated:YES completion:nil];
+    });
+}
+
+- (NSString *)performRemoteCommand:(NSString *)command value:(id)value {
+    JeevesIdleManager *idle = [JeevesIdleManager sharedManager];
+    if ([command isEqualToString:@"home"]) {
+        [idle userDidInteract];
+        [self returnToHome];
+    } else if ([command isEqualToString:@"reload"]) {
+        [self rebuildInterfaceWithNoticeTitle:nil message:nil];
+    } else if ([command isEqualToString:@"wake"]) {
+        [idle userDidInteract];
+    } else if ([command isEqualToString:@"identify"]) {
+        [idle userDidInteract];
+        [self showNoticeWithTitle:[UIDevice currentDevice].name message:@"Identified from Home Assistant" duration:5];
+    } else if ([command isEqualToString:@"brightness"]) {
+        if (![value isKindOfClass:[NSNumber class]]) return @"brightness needs a value from 0 to 1";
+        [idle userDidInteract]; // undims first, so the dimmer doesn't restore its own level afterwards
+        [UIScreen mainScreen].brightness = MAX(0.0, MIN(1.0, [value doubleValue]));
+    } else {
+        return [NSString stringWithFormat:@"Unknown command \u201c%@\u201d", command];
+    }
+    return nil;
 }
 
 // Closes any open screens and shows the Home dashboard. Does nothing during

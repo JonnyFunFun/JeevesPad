@@ -42,6 +42,13 @@ extern NSString * const HAAPIClientConnectionStatusChangedNotification;
 // Weather
 - (void)fetchWeatherForecastForEntity:(NSString *)entityId completion:(nullable HACompletionBlock)completion;
 
+// Any REST call (path starts with /api/); `body` is sent as JSON. Completes on the main
+// queue with the HTTP status (0 if the request failed) and the parsed JSON response.
+- (void)sendRequestWithMethod:(NSString *)method
+                         path:(NSString *)path
+                         body:(nullable id)body
+                   completion:(void (^)(NSInteger statusCode, id _Nullable json, NSError * _Nullable error))completion;
+
 @end
 
 NS_ASSUME_NONNULL_END

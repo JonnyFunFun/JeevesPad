@@ -153,6 +153,10 @@ static const NSTimeInterval kFadeDuration = 0.8;
 
 #pragma mark - Activity
 
+- (NSTimeInterval)idleTime {
+    return self.lastActivity ? -[self.lastActivity timeIntervalSinceNow] : 0;
+}
+
 - (void)userDidInteract {
     self.lastActivity = [NSDate date];
     self.didReturnHome = NO;

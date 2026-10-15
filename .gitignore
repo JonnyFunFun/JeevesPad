@@ -27,3 +27,8 @@ xcuserdata/
 # Temporary files
 *.log
 *.tmp
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/

@@ -6,5 +6,10 @@
 	<string>com.jeeves.Jeeves</string>
 	<key>get-task-allow</key>
 	<true/>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>com.jeeves.Jeeves</string>
+		<string>apple</string>
+	</array>
 </dict>
 </plist>

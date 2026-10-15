@@ -16,6 +16,7 @@ extern NSString * const JeevesIdleSettingsDidChangeNotification;
 @property (nonatomic, assign) BOOL dimsWhenIdle;          // default YES; keeps the screen from auto-locking
 @property (nonatomic, assign) BOOL wakesOnMotion;         // default NO; uses the front camera while dimmed
 @property (nonatomic, assign, readonly, getter=isDimmed) BOOL dimmed;
+@property (nonatomic, assign, readonly) NSTimeInterval idleTime; // seconds since the last touch
 
 // Called on the main thread when the home timeout elapses
 @property (nonatomic, copy, nullable) void (^returnHomeHandler)(void);
