@@ -26,7 +26,7 @@ hassio_api: true
 discovery:
   - jeevespad
 backup_exclude:
-  - "payload/*"
+  - "packages/*/payload/*"
 
 options:
   ssh_password: alpine

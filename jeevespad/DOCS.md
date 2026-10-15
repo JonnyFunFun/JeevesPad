@@ -12,7 +12,16 @@ Open **wallPads** in the sidebar to manage your Jeeves wall panels.
 1. Start the app and open **wallPads**. Any iPad running Jeeves on your network appears.
 2. Open the **Fleet** tab. The app made a fleet code (or uses the one in its configuration).
 3. For each existing wallPad, open **Maintenance → Enrol in this fleet**. Jeeves restarts with fleet sync on and the fleet code. Or enter the code yourself in Settings → Fleet on the iPad.
-4. Upload `Jeeves.ipa` (made with `build_ipa.sh`) on the **App package** tab, so you can update wallPads and set up new ones.
+4. On the **App package** tab, download the published release, or upload your own `Jeeves.ipa` (made with `build_ipa.sh`), so you can update wallPads and set up new ones.
+
+## App packages
+
+The **App package** tab holds up to two copies of Jeeves:
+
+- **Your package**: a `Jeeves.ipa` you upload, such as your own build from `build_ipa.sh`. While it's there, it's what gets installed, and downloading a newer published release doesn't replace it.
+- **Published release**: downloaded from the JeevesPad releases on GitHub (or the address in the configuration, or one you enter). It's used when you haven't uploaded a package, and is downloaded automatically the first time it's needed.
+
+**Remove my package** goes back to the published release. Neither changes wallPads by itself: choose wallPads under **Update wallPads** to install the package in use. Packages can't be changed while one is being installed.
 
 ## Setting up a new iPad
 

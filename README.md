@@ -223,7 +223,7 @@ HACS only installs integrations (and dashboard cards, themes and the like), not 
 1. **App:** Settings → Apps → App store → ⋮ → Repositories, add `https://github.com/JonnyFunFun/JeevesPad`, then install **JeevesPad Manager**. See its [documentation](jeevespad/DOCS.md).
 2. **Integration:** HACS → ⋮ → Custom repositories, add `https://github.com/JonnyFunFun/JeevesPad` as an *Integration*, install **JeevesPad** and restart Home Assistant. Home Assistant then offers to add the wallPads found by the app.
 
-The app reaches wallPads two ways: through Jeeves's fleet protocol (the same encrypted connection iPads use to share settings, so wallPads need fleet sync on and the app's fleet code; **Enrol in this fleet** sets that up over SSH), and over SSH for installing, updating, restarting and rebooting. To set up a new iPad, the app installs a `Jeeves.ipa` you upload (or downloads it from a GitHub release); it can't build Jeeves itself.
+The app reaches wallPads two ways: through Jeeves's fleet protocol (the same encrypted connection iPads use to share settings, so wallPads need fleet sync on and the app's fleet code; **Enrol in this fleet** sets that up over SSH), and over SSH for installing, updating, restarting and rebooting. It installs the published `Jeeves.ipa` from this repository's GitHub releases, or your own build from `build_ipa.sh` if you upload one (yours takes precedence until you remove it); it can't build Jeeves itself.
 
 ## Presence: Tracking Phones with Bermuda
 

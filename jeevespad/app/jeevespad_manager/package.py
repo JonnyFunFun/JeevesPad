@@ -1,8 +1,11 @@
 """The Jeeves app package (Jeeves.ipa) installed on wallPads.
 
-The add-on can't build Jeeves (that needs Theos and the iOS 9.3 SDK), so it installs a
-package built with build_ipa.sh: uploaded on the App page, or downloaded from a URL
-(by default the latest GitHub release).
+The app can't build Jeeves (that needs Theos and the iOS 9.3 SDK), so it installs a
+package from one of two slots:
+- custom: one the user uploaded (for example their own build from build_ipa.sh). While
+  it's there, it's the one installed.
+- published: downloaded from a URL, by default the latest GitHub release.
+Removing the custom package goes back to the published one.
 """
 
 from __future__ import annotations
@@ -26,10 +29,13 @@ class PackageError(Exception):
 
 
 class Package:
-    def __init__(self, data_dir: str) -> None:
-        self.ipa_path = os.path.join(data_dir, "Jeeves.ipa")
-        self.meta_path = os.path.join(data_dir, "Jeeves.ipa.json")
-        self.extract_dir = os.path.join(data_dir, "payload")
+    """One package slot: Jeeves.ipa, its details, and the extracted Jeeves.app."""
+
+    def __init__(self, directory: str) -> None:
+        os.makedirs(directory, exist_ok=True)
+        self.ipa_path = os.path.join(directory, "Jeeves.ipa")
+        self.meta_path = os.path.join(directory, "Jeeves.ipa.json")
+        self.extract_dir = os.path.join(directory, "payload")
 
     @property
     def app_dir(self) -> str:
@@ -70,6 +76,12 @@ class Package:
         if info.get("CFBundleIdentifier") != "com.jeeves.Jeeves":
             raise PackageError(f"That package is {info.get('CFBundleIdentifier')!r}, not Jeeves")
         return info
+
+    def remove(self) -> None:
+        for path in (self.ipa_path, self.meta_path):
+            if os.path.exists(path):
+                os.remove(path)
+        shutil.rmtree(self.extract_dir, ignore_errors=True)
 
     def store(self, data: bytes, source: str) -> dict:
         """Saves and validates a new package."""
@@ -121,3 +133,74 @@ class Package:
         except aiohttp.ClientError as err:
             raise PackageError(f"Download failed: {err}") from err
         return self.store(bytes(data), url)
+
+
+class PackageStore:
+    """The custom (uploaded) and published (downloaded) packages; custom wins."""
+
+    CUSTOM = "custom"
+    PUBLISHED = "published"
+
+    def __init__(self, data_dir: str) -> None:
+        root = os.path.join(data_dir, "packages")
+        self.custom = Package(os.path.join(root, self.CUSTOM))
+        self.published = Package(os.path.join(root, self.PUBLISHED))
+        self._migrate(data_dir)
+
+    def _migrate(self, data_dir: str) -> None:
+        """Earlier versions kept a single package in the data folder."""
+        old_ipa = os.path.join(data_dir, "Jeeves.ipa")
+        if not os.path.exists(old_ipa):
+            return
+        old_meta = old_ipa + ".json"
+        try:
+            with open(old_meta) as f:
+                source = json.load(f).get("source", "")
+        except (OSError, ValueError):
+            source = ""
+        slot = self.published if source.startswith(("http://", "https://")) else self.custom
+        if not os.path.exists(slot.ipa_path):
+            os.replace(old_ipa, slot.ipa_path)
+            if os.path.exists(old_meta):
+                os.replace(old_meta, slot.meta_path)
+        for leftover in (old_ipa, old_meta):
+            if os.path.exists(leftover):
+                os.remove(leftover)
+        shutil.rmtree(os.path.join(data_dir, "payload"), ignore_errors=True)
+
+    def active_slot(self) -> str | None:
+        if self.custom.info():
+            return self.CUSTOM
+        if self.published.info():
+            return self.PUBLISHED
+        return None
+
+    def active(self) -> Package | None:
+        slot = self.active_slot()
+        return {self.CUSTOM: self.custom, self.PUBLISHED: self.published}.get(slot) if slot else None
+
+    def info(self) -> dict:
+        return {"active": self.active_slot(), self.CUSTOM: self.custom.info(), self.PUBLISHED: self.published.info()}
+
+    def describe_active(self) -> str:
+        package = self.active()
+        if package is None:
+            return "no package"
+        meta = package.info() or {}
+        owner = "your uploaded package" if package is self.custom else "the published release"
+        return f"{owner}, Jeeves {meta.get('version', '?')} ({meta.get('build', '?')})"
+
+    def install_ready(self) -> str:
+        package = self.active()
+        if package is None:
+            raise PackageError("There's no Jeeves app package yet. Upload Jeeves.ipa or download it on the App package tab.")
+        return package.install_ready()
+
+    def upload(self, data: bytes, filename: str) -> dict:
+        return self.custom.store(data, filename or "upload")
+
+    def remove_custom(self) -> None:
+        self.custom.remove()
+
+    async def download(self, url: str) -> dict:
+        return await self.published.download(url)

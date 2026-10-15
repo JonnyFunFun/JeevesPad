@@ -13,7 +13,7 @@ function h(tag, attrs, ...children) {
     else if (k === "style") el.style.cssText = v;
     else el.setAttribute(k, v === true ? "" : v);
   }
-  for (const child of children.flat()) {
+  for (const child of children.flat(Infinity)) {
     if (child === null || child === undefined || child === false) continue;
     el.append(child instanceof Node ? child : document.createTextNode(String(child)));
   }
@@ -497,6 +497,12 @@ function showJob(job, container) {
   }, 1500);
 }
 
+function packageNote(pkg) {
+  if (pkg.active === "custom") return `Jeeves ${pkg.custom.version} from your uploaded package will be installed (see the App package tab).`;
+  if (pkg.active === "published") return `Jeeves ${pkg.published.version} from the published release will be installed. To install your own build, upload it on the App package tab.`;
+  return "The published release will be downloaded and installed. To install your own build, upload it on the App package tab first.";
+}
+
 // --- set up an iPad --------------------------------------------------------------------
 
 function renderSetup() {
@@ -532,7 +538,7 @@ function renderSetup() {
         h("li", {}, "Jailbreak the iPad (Jeeves is made for iOS 9.3.5)."),
         h("li", {}, "In Cydia, install OpenSSH, UIKit Tools and Open."),
         h("li", {}, "Connect it to the same network as Home Assistant and note its IP address (Settings → Wi-Fi → ⓘ)."),
-        h("li", {}, "Make sure an app package is on the App package tab, or one will be downloaded.")),
+        h("li", {}, packageNote(st.package))),
       h("div", { class: "row" },
         h("label", { class: "field" }, h("span", {}, "IP address"), host),
         h("label", { class: "field" }, h("span", {}, "Root password"), password)),
@@ -549,55 +555,90 @@ function renderSetup() {
 // --- app package -------------------------------------------------------------------------
 
 function renderApp() {
-  const pkg = app.state.package;
-  const file = h("input", { type: "file", accept: ".ipa" });
-  const url = h("input", { type: "url", placeholder: "Latest GitHub release (default)" });
   const out = h("div", {});
-  const info = h("div", {});
-  const drawInfo = (p) => info.replaceChildren(p
-    ? h("dl", { class: "facts" },
-        h("dt", {}, "Version"), h("dd", {}, `${p.version} (${p.build})`),
-        h("dt", {}, "From"), h("dd", { class: "mono" }, p.source),
-        h("dt", {}, "Added"), h("dd", {}, new Date(p.added * 1000).toLocaleString()))
-    : h("p", { class: "muted" }, "No package yet. Upload Jeeves.ipa (made with build_ipa.sh) or download it."));
-  drawInfo(pkg);
+  const panels = h("div", {});
+  const file = h("input", { type: "file", accept: ".ipa", "aria-label": "Jeeves.ipa file" });
+  const url = h("input", { type: "url", placeholder: "Latest GitHub release (default)", "aria-label": "Download address" });
 
-  const upload = h("button", { class: "btn", onclick: async () => {
+  const facts = (p) => h("dl", { class: "facts" },
+    h("dt", {}, "Version"), h("dd", {}, `${p.version} (${p.build})`),
+    h("dt", {}, "From"), h("dd", { class: "mono" }, p.source),
+    h("dt", {}, "Added"), h("dd", {}, new Date(p.added * 1000).toLocaleString()));
+  const inUse = (slot) => app.state.package.active === slot && h("span", { class: "badge" }, "In use");
+
+  async function busy(button, work) {
+    button.disabled = true;
+    try { app.state.package = await work(); draw(); }
+    catch (e) { toast(e.message, true); }
+    button.disabled = false;
+  }
+
+  const upload = h("button", { class: "btn primary", onclick: () => {
     if (!file.files.length) { toast("Choose a Jeeves.ipa file first", true); return; }
     const form = new FormData();
     form.append("file", file.files[0]);
-    upload.disabled = true;
-    try { const meta = await api("package/upload", { method: "POST", body: form }); app.state.package = meta; drawInfo(meta); toast(`Added Jeeves ${meta.version}`); }
-    catch (e) { toast(e.message, true); }
-    upload.disabled = false;
+    busy(upload, async () => {
+      const info = await api("package/upload", { method: "POST", body: form });
+      toast(`Uploaded Jeeves ${info.custom.version}. wallPads will get this package.`);
+      file.value = "";
+      return info;
+    });
   } }, "Upload");
-  const download = h("button", { class: "btn", onclick: async () => {
-    download.disabled = true;
-    try { const meta = await api("package/download", { method: "POST", body: { url: url.value } }); app.state.package = meta; drawInfo(meta); toast(`Downloaded Jeeves ${meta.version}`); }
-    catch (e) { toast(e.message, true); }
-    download.disabled = false;
-  } }, "Download");
+  const remove = h("button", { class: "btn danger", onclick: () => {
+    const fallback = app.state.package.published;
+    if (!confirm(fallback
+      ? `Remove your package? wallPads will get the published release (Jeeves ${fallback.version}) from now on. Nothing changes on wallPads until you update them.`
+      : "Remove your package? There's no published release downloaded, so the next update or setup downloads one.")) return;
+    busy(remove, async () => { const info = await api("package/custom", { method: "DELETE" }); toast("Removed your package"); return info; });
+  } }, "Remove my package");
+  const download = h("button", { class: "btn", onclick: () => busy(download, async () => {
+    const info = await api("package/download", { method: "POST", body: { url: url.value } });
+    toast(info.active === "custom"
+      ? `Downloaded Jeeves ${info.published.version}. Your uploaded package is still the one in use.`
+      : `Downloaded Jeeves ${info.published.version}`);
+    return info;
+  }) }, "Download");
 
-  const targets = pads().map((p) => ({ pad: p, box: h("input", { type: "checkbox", checked: true }) }));
-  const update = h("button", { class: "btn primary", onclick: async () => {
-    const ids = targets.filter((t) => t.box.checked).map((t) => t.pad.id);
-    if (!confirm(`Install this package on ${ids.length} wallPad(s)? Jeeves restarts on each; settings are kept.`)) return;
-    try { showJob(await api("update-app", { method: "POST", body: { wallpads: ids } }), out); }
-    catch (e) { toast(e.message, true); }
-  } }, "Update selected wallPads");
+  function draw() {
+    const pkg = app.state.package;
+    panels.replaceChildren(
+      h("section", { class: "panel" + (pkg.active === "custom" ? " active" : "") },
+        h("div", { class: "panel-head" }, h("h2", {}, "Your package"), inUse("custom")),
+        h("p", { class: "lede" }, "Upload a Jeeves.ipa of your own, such as one you built with build_ipa.sh. While it's here, it's installed instead of the published release."),
+        pkg.custom ? facts(pkg.custom) : h("p", { class: "muted" }, "None uploaded."),
+        h("div", { class: "row", style: "margin-top: 14px; align-items: center" }, file,
+          h("div", { class: "toolbar", style: "flex: 0 0 auto; margin: 0" }, upload, pkg.custom && remove))),
+      h("section", { class: "panel" + (pkg.active === "published" ? " active" : "") },
+        h("div", { class: "panel-head" }, h("h2", {}, "Published release"), inUse("published")),
+        h("p", { class: "lede" }, pkg.custom
+          ? "Used when you remove your package."
+          : "Downloaded from the JeevesPad releases on GitHub, or another address."),
+        pkg.published ? facts(pkg.published) : h("p", { class: "muted" }, "Not downloaded yet. Setting up or updating a wallPad downloads it if there's no package."),
+        h("div", { class: "row", style: "margin-top: 14px" }, url, h("div", { style: "flex: 0 0 auto" }, download))),
+      updatePanel());
+  }
 
-  return h("div", {},
-    h("section", { class: "panel" }, h("h2", {}, "App package"),
-      h("p", { class: "lede" }, "The Jeeves app that's installed on wallPads. It can't be built here; build it with build_ipa.sh or use a release."),
-      info,
-      h("h3", {}, "Upload"), h("div", { class: "row" }, file, h("div", { style: "flex:0" }, upload)),
-      h("h3", {}, "Download"), h("div", { class: "row" }, url, h("div", { style: "flex:0" }, download))),
-    h("section", { class: "panel" }, h("h2", {}, "Update wallPads"),
+  function updatePanel() {
+    const pkg = app.state.package;
+    const active = pkg.active && pkg[pkg.active];
+    const targets = pads().map((p) => ({ pad: p, box: h("input", { type: "checkbox", checked: true }) }));
+    const update = h("button", { class: "btn primary", onclick: async () => {
+      const ids = targets.filter((t) => t.box.checked).map((t) => t.pad.id);
+      const what = active ? `${pkg.active === "custom" ? "your package" : "the published release"} (Jeeves ${active.version})` : "the published release";
+      if (!confirm(`Install ${what} on ${ids.length} wallPad(s)? Jeeves restarts on each; settings are kept.`)) return;
+      try { showJob(await api("update-app", { method: "POST", body: { wallpads: ids } }), out); }
+      catch (e) { toast(e.message, true); }
+    } }, active ? `Install Jeeves ${active.version} on selected wallPads` : "Update selected wallPads");
+    return h("section", { class: "panel" }, h("h2", {}, "Update wallPads"),
       targets.length === 0 ? h("p", { class: "muted" }, "No wallPads yet.") :
         [targets.map(({ pad, box }) => h("label", { class: "check" }, box, h("span", {}, pad.name,
-          h("span", { class: "muted" }, " — ", (pad.status && pad.status.appVersion) || pad.app_version || "version unknown")))),
+          h("span", { class: "muted" }, " — now ", (pad.status && pad.status.appVersion) || pad.app_version || "version unknown")))),
          h("div", { class: "toolbar" }, update)],
-      out));
+      out);
+  }
+
+  draw();
+  return panels;
 }
 
 // --- fleet ---------------------------------------------------------------------------------

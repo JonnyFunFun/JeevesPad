@@ -185,7 +185,7 @@ async def test_provision_installs_and_enrols(env, monkeypatch):
         form = aiohttp.FormData()
         form.add_field("file", make_ipa("1.2"), filename="Jeeves.ipa")
         res = await client.post("/api/package/upload", data=form)
-        assert (await res.json())["version"] == "1.2"
+        assert (await res.json())["custom"]["version"] == "1.2"
 
         # Wrong password without one given: a clear message
         monkeypatch.setenv("FAKE_SSH_PASSWORD", "s3cret")
@@ -197,6 +197,7 @@ async def test_provision_installs_and_enrols(env, monkeypatch):
                                                                "settings_source": "copy:abcd1234"})).json()
         job = await wait_job(client, job["id"])
         assert job["state"] == "done", job["log"]
+        assert any("your uploaded package, Jeeves 1.2" in l["line"] for l in job["log"])
 
         log = (env / "ssh.log").read_text()
         assert "scp" in log and "/Applications/" in log and "uicache" in log
@@ -231,3 +232,66 @@ def test_generated_fleet_code_is_kept(env):
     b = Manager(str(env), {})
     assert a.fleet_code == b.fleet_code and len(a.fleet_code) == 19
     assert a.fleet_code_is_generated
+
+
+async def _upload(client, data: bytes, name="Jeeves.ipa"):
+    form = aiohttp.FormData()
+    form.add_field("file", data, filename=name)
+    return await client.post("/api/package/upload", data=form)
+
+
+@pytest.mark.asyncio
+async def test_uploaded_package_overrides_published(env, monkeypatch):
+    m, client = await start(env)
+    try:
+        async def fake_download(url):
+            return m.package.published.store(make_ipa("1.0"), url)
+        monkeypatch.setattr(m.package, "download", fake_download)
+
+        info = await (await client.post("/api/package/download", json={})).json()
+        assert info["active"] == "published" and info["published"]["version"] == "1.0"
+        assert info["published"]["source"].startswith("https://github.com/")
+
+        info = await (await _upload(client, make_ipa("2.0-dev"))).json()
+        assert info["active"] == "custom" and info["custom"]["source"] == "Jeeves.ipa"
+        assert m.package.describe_active() == "your uploaded package, Jeeves 2.0-dev (7)"
+        assert m.package.install_ready().startswith(str(env / "data" / "packages" / "custom"))
+
+        # A new published release doesn't replace the uploaded package
+        info = await (await client.post("/api/package/download", json={})).json()
+        assert info["active"] == "custom"
+
+        # A bad upload keeps the current one
+        res = await _upload(client, b"not a zip")
+        assert res.status == 400 and "isn't an .ipa" in (await res.json())["error"]
+        bad = io.BytesIO()
+        with zipfile.ZipFile(bad, "w") as z:
+            z.writestr("Payload/Other.app/Info.plist", b"")
+        res = await _upload(client, bad.getvalue())
+        assert res.status == 400
+        assert m.package.custom.info()["version"] == "2.0-dev"
+
+        # Not while an install is copying files
+        m._installs = 1
+        res = await client.delete("/api/package/custom")
+        assert res.status == 400 and "being installed" in (await res.json())["error"]
+        m._installs = 0
+
+        info = await (await client.delete("/api/package/custom")).json()
+        assert info["active"] == "published" and info["custom"] is None
+        assert m.package.describe_active() == "the published release, Jeeves 1.0 (7)"
+    finally:
+        await client.close()
+
+
+def test_single_package_from_earlier_versions_is_migrated(env):
+    data = env / "data"
+    data.mkdir()
+    (data / "Jeeves.ipa").write_bytes(make_ipa("0.9"))
+    (data / "Jeeves.ipa.json").write_text('{"version": "0.9", "build": "7", "source": "my-build.ipa", "size": 1, "added": 0}')
+    (data / "payload").mkdir()
+    m = Manager(str(data), {"fleet_code": CODE})
+    assert m.package.info()["active"] == "custom"
+    assert m.package.custom.info()["version"] == "0.9"
+    assert not (data / "Jeeves.ipa").exists() and not (data / "payload").exists()
+    assert m.package.install_ready().endswith("Jeeves.app")

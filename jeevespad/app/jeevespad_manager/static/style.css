@@ -133,6 +133,10 @@ input[type=checkbox], input[type=radio] { accent-color: var(--brass); }
 /* Panels and editors */
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 18px; max-width: 860px; }
 .panel > h2:first-child { margin-top: 0; }
+.panel.active { border-color: var(--brass); box-shadow: inset 4px 0 0 var(--brass); }
+.panel-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.panel-head h2 { margin: 0; }
+.badge { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 99px; background: var(--brass); color: var(--brass-ink); }
 .cards { display: grid; gap: 6px; }
 .card-row { display: grid; grid-template-columns: minmax(150px, 2fr) minmax(110px, 1.4fr) 110px auto; gap: 6px; align-items: center; }
 .card-row .moves { display: flex; gap: 4px; }

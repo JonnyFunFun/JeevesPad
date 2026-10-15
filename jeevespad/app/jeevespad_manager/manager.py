@@ -22,7 +22,7 @@ from typing import Any, Awaitable, Callable
 
 from . import fleet, settings
 from .discovery import Advertisement, Discovery
-from .package import DEFAULT_URL, Package, PackageError
+from .package import DEFAULT_URL, PackageError, PackageStore
 from .ssh import PROVISION_PATH, SSHClient, SSHError
 from .supervisor import Supervisor
 
@@ -94,7 +94,8 @@ class Manager:
         self.store_path = os.path.join(data_dir, "wallpads.json")
         self.wallpads: dict[str, WallPad] = {}
         self.jobs: dict[str, Job] = {}
-        self.package = Package(data_dir)
+        self.package = PackageStore(data_dir)
+        self._installs = 0  # jobs that are installing a package right now
         self.ssh = SSHClient(os.path.join(data_dir, "known_hosts"))
         self.supervisor = Supervisor()
         self.discovery = Discovery(on_change=self._discovery_changed)
@@ -432,12 +433,42 @@ class Manager:
         return job
 
     async def _ensure_package(self, job: Job) -> str:
-        if not self.package.info():
+        if not self.package.active():
             url = self.options.get("app_package_url") or DEFAULT_URL
             job.add(f"No app package yet; downloading {url}…")
             meta = await self.package.download(url)
             job.add(f"Downloaded Jeeves {meta['version']} ({meta['build']}).")
-        return self.package.install_ready()
+        app_dir = self.package.install_ready()
+        job.add(f"Installing {self.package.describe_active()}.")
+        return app_dir
+
+    def _installing(self, work: Callable[[Job], Awaitable[Any]]) -> Callable[[Job], Awaitable[Any]]:
+        """Marks a job as installing, so packages aren't replaced while it copies one."""
+        async def wrapped(job: Job):
+            self._installs += 1
+            try:
+                return await work(job)
+            finally:
+                self._installs -= 1
+        return wrapped
+
+    def _check_not_installing(self) -> None:
+        if self._installs:
+            raise ManagerError("Jeeves is being installed on a wallPad right now. Try again when that's finished.")
+
+    def upload_package(self, data: bytes, filename: str) -> dict:
+        """Stores the user's own package; it's used instead of the published one."""
+        self._check_not_installing()
+        return self.package.upload(data, filename)
+
+    def remove_custom_package(self) -> None:
+        """Goes back to the published package."""
+        self._check_not_installing()
+        self.package.remove_custom()
+
+    async def download_package(self, url: str | None) -> dict:
+        self._check_not_installing()
+        return await self.package.download((url or self.options.get("app_package_url") or DEFAULT_URL).strip())
 
     async def _provision_payload(self, job: Job, settings_source: str | None, ha_url: str | None,
                                  ha_token: str | None) -> dict:
@@ -512,7 +543,7 @@ class Manager:
             self.save()
             return {"wallpad": pad.id}
 
-        return self.start_job(f"Set up {host}", work)
+        return self.start_job(f"Set up {host}", self._installing(work))
 
     def enrol(self, pad_id: str, password: str | None, settings_source: str | None) -> Job:
         """Adds a wallPad that already runs Jeeves to the fleet: sets its fleet code over SSH."""
@@ -562,4 +593,4 @@ class Manager:
                 raise ManagerError(f"Updated {len(pads) - len(failures)} of {len(pads)} wallPads")
             return {"updated": len(pads)}
 
-        return self.start_job("Update Jeeves" if len(pads) > 1 else f"Update {pads[0].name}", work)
+        return self.start_job("Update Jeeves" if len(pads) > 1 else f"Update {pads[0].name}", self._installing(work))

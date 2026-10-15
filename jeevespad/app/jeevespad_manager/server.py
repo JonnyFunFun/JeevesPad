@@ -199,16 +199,22 @@ async def upload_package(request: web.Request) -> web.Response:
         data.extend(chunk)
         if len(data) > MAX_UPLOAD:
             raise ManagerError("That file is too large to be a Jeeves package")
-    meta = request.app[MANAGER].package.store(bytes(data), part.filename or "upload")
-    return web.json_response(meta)
+    m: Manager = request.app[MANAGER]
+    m.upload_package(bytes(data), part.filename or "upload")
+    return web.json_response(m.package.info())
+
+
+async def remove_custom_package(request: web.Request) -> web.Response:
+    m: Manager = request.app[MANAGER]
+    m.remove_custom_package()
+    return web.json_response(m.package.info())
 
 
 async def download_package(request: web.Request) -> web.Response:
     data = await _json(request)
     m: Manager = request.app[MANAGER]
-    from .package import DEFAULT_URL
-    url = (data.get("url") or m.options.get("app_package_url") or DEFAULT_URL).strip()
-    return web.json_response(await m.package.download(url))
+    await m.download_package(data.get("url"))
+    return web.json_response(m.package.info())
 
 
 # --- integration API ---------------------------------------------------------------------
@@ -264,6 +270,7 @@ def create_app(manager: Manager, dev: bool = False) -> web.Application:
     app.router.add_get("/api/entities", entities)
     app.router.add_post("/api/package/upload", upload_package)
     app.router.add_post("/api/package/download", download_package)
+    app.router.add_delete("/api/package/custom", remove_custom_package)
     app.router.add_get("/api/v1/wallpads", v1_wallpads)
     app.router.add_post("/api/v1/wallpads/{id}/command", v1_command)
     app.router.add_post("/api/v1/wallpads/{id}/ssh/{action}", v1_ssh)
