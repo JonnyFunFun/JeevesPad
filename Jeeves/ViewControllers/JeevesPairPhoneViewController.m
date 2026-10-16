@@ -96,12 +96,15 @@ static NSString * const kCellID = @"PairPhoneCell";
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     if (section == PairSectionName) return nil;
     return [NSString stringWithFormat:
-            @"While pairing, this panel shows up as a Bluetooth accessory called “%@”.\n"
-            @"• iPhone: open a Bluetooth app such as LightBlue or nRF Connect, connect to “%@” and read its "
-            @"characteristic (tap it in LightBlue, or the ↓ button in nRF Connect). The iPhone then asks to pair: tap Pair.\n"
-            @"• Android: Settings → Bluetooth → Pair new device → “%@”.\n"
-            @"If this panel also asks to pair, tap Pair. Keep the phone near a Bluetooth proxy so Home Assistant can see it. "
-            @"Afterwards you can forget “%@” on the phone; tracking keeps working.",
+            @"While pairing, this panel shows up as a Bluetooth accessory called “%@”. Pair from a Bluetooth app, "
+            @"not the phone's Bluetooth settings (this panel only accepts pairing it asks for):\n"
+            @"• Install nRF Connect (iPhone or Android) or LightBlue (iPhone).\n"
+            @"• Connect to “%@”, open its service and read its characteristic (the ↓ button in nRF Connect, or tap it "
+            @"in LightBlue).\n"
+            @"• The phone asks to pair: tap Pair. If this panel asks too, tap Pair here.\n"
+            @"If an earlier attempt left “%@” or this iPad in the phone's list of Bluetooth devices, forget it first. "
+            @"Keep the phone near a Bluetooth proxy so Home Assistant can see it. Afterwards you can forget “%@” on the "
+            @"phone; tracking keeps working.",
             self.pairer.advertisedName, self.pairer.advertisedName, self.pairer.advertisedName, self.pairer.advertisedName];
 }
 

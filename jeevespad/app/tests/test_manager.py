@@ -227,6 +227,16 @@ async def test_rejects_requests_not_from_ingress(env):
         await client.close()
 
 
+@pytest.mark.asyncio
+async def test_ui_assets_are_versioned(env):
+    m, client = await start(env)
+    try:
+        html = await (await client.get("/")).text()
+        assert 'src="static/app.js?v=' in html and 'href="static/style.css?v=' in html
+    finally:
+        await client.close()
+
+
 def test_generated_fleet_code_is_kept(env):
     a = Manager(str(env), {})
     b = Manager(str(env), {})

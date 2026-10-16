@@ -1,5 +1,5 @@
 name: JeevesPad Manager
-version: "0.1.0"
+version: "0.1.1"
 slug: jeevespad
 description: >-
   Manage every Jeeves wall panel (wallPad) from Home Assistant: status, settings,

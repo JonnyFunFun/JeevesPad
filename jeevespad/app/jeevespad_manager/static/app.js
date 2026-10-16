@@ -13,11 +13,23 @@ function h(tag, attrs, ...children) {
     else if (k === "style") el.style.cssText = v;
     else el.setAttribute(k, v === true ? "" : v);
   }
+  return append(el, children);
+}
+
+// Adds children like h() does: nested lists are flattened, and null/undefined/false
+// (from `condition && element`) are skipped rather than shown as text
+function append(el, children) {
   for (const child of children.flat(Infinity)) {
     if (child === null || child === undefined || child === false) continue;
     el.append(child instanceof Node ? child : document.createTextNode(String(child)));
   }
   return el;
+}
+
+// Replaces an element's contents; use instead of replaceChildren, which shows false and lists as text
+function fill(el, ...children) {
+  el.replaceChildren();
+  return append(el, children);
 }
 
 async function api(path, opts = {}) {
@@ -229,7 +241,7 @@ function openSheet(title, body, footer, { lock = true } = {}) {
   const scrim = document.getElementById("scrim");
   const close = () => { sheet.hidden = true; scrim.hidden = true; app.sheetLocks = false; document.removeEventListener("keydown", onKey); loadState(); };
   const onKey = (e) => { if (e.key === "Escape") close(); };
-  sheet.replaceChildren(
+  fill(sheet,
     h("header", {}, h("h2", {}, title), h("button", { class: "btn icon", "aria-label": "Close", onclick: close }, "✕")),
     h("div", { class: "body" }, body),
     footer && h("footer", {}, footer));
@@ -359,7 +371,7 @@ async function openDashboards(pad) {
   }
 
   function draw() {
-    body.replaceChildren(
+    fill(body,
       h("p", { class: "lede" }, "Cards appear in this order. Card names and sizes only change how this wallPad shows them; nothing is renamed in Home Assistant."),
       h("h3", {}, "Home"),
       cardList(model.home),
@@ -601,7 +613,7 @@ function renderApp() {
 
   function draw() {
     const pkg = app.state.package;
-    panels.replaceChildren(
+    fill(panels, 
       h("section", { class: "panel" + (pkg.active === "custom" ? " active" : "") },
         h("div", { class: "panel-head" }, h("h2", {}, "Your package"), inUse("custom")),
         h("p", { class: "lede" }, "Upload a Jeeves.ipa of your own, such as one you built with build_ipa.sh. While it's here, it's installed instead of the published release."),

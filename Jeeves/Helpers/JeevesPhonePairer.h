@@ -15,9 +15,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Gets a phone's Identity Resolving Key by pairing it with this iPad. The iPad
 // advertises itself as a Bluetooth LE accessory ("Jeeves Pairing") with a characteristic
-// that requires encryption, so connecting to it pairs; or the phone can pair from its
-// Bluetooth settings. Either way the phone hands over its IRK, which iOS's Bluetooth
-// daemon stores in the keychain ("apple" access group, service "MobileBluetooth"; needs
+// that requires encryption, so reading it from a Bluetooth app pairs. (Pairing from the
+// phone's Bluetooth settings doesn't work: an iOS peripheral only accepts pairing it
+// requested, and Android may try classic Bluetooth.) The phone hands over its IRK, which
+// iOS's Bluetooth daemon stores in the keychain ("apple" access group, service "MobileBluetooth"; needs
 // the keychain-access-groups entitlement, so a jailbroken device). New or changed items
 // there are the newly paired phone.
 //

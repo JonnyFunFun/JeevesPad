@@ -69,10 +69,18 @@ def _job(job) -> dict:
 
 # --- UI ------------------------------------------------------------------------------
 
+def _asset_version() -> str:
+    """Changes whenever the UI files do, so browsers don't keep an old copy after an update."""
+    return str(max(int(os.path.getmtime(os.path.join(STATIC_DIR, name))) for name in os.listdir(STATIC_DIR)))
+
+
 async def index(request: web.Request) -> web.Response:
-    response = web.FileResponse(os.path.join(STATIC_DIR, "index.html"))
-    response.headers["Cache-Control"] = "no-cache"
-    return response
+    with open(os.path.join(STATIC_DIR, "index.html")) as f:
+        html = f.read()
+    version = _asset_version()
+    for asset in ("static/app.js", "static/style.css"):
+        html = html.replace(f'"{asset}"', f'"{asset}?v={version}"')
+    return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-cache"})
 
 
 async def state(request: web.Request) -> web.Response:
