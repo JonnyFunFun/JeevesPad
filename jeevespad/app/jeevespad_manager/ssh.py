@@ -14,11 +14,28 @@ import os
 import shlex
 from dataclasses import dataclass
 
+from .hosts import InvalidHost, is_ipv6, normalize_host
+
 _LOGGER = logging.getLogger(__name__)
 
 APP_PATH = "/Applications/Jeeves.app"
 PROVISION_PATH = "/var/mobile/Library/Jeeves/provision.plist"
 LAUNCH = "open com.jeeves.Jeeves 2>/dev/null || uiopen /Applications/Jeeves.app 2>/dev/null || uiopen jeeves://"
+
+# Installs the Cydia packages installing Jeeves needs, if they're missing: uikittools
+# (uicache: adds the app to the home screen) and com.conradkramer.open (open: starts Jeeves
+# remotely). Keep in sync with JEEVES_DEPENDENCIES_SCRIPT in deploy_common.sh.
+DEPENDENCIES_SCRIPT = """missing=""
+command -v uicache >/dev/null 2>&1 || missing="$missing uikittools"
+command -v open >/dev/null 2>&1 || missing="$missing com.conradkramer.open"
+if [ -z "$missing" ]; then echo "deps=ok"; exit 0; fi
+command -v apt-get >/dev/null 2>&1 || { echo "deps=noapt$missing"; exit 3; }
+echo "Installing$missing from Cydia..."
+apt-get update >/dev/null 2>&1
+apt-get install -y --force-yes $missing 2>&1 | tail -3
+command -v uicache >/dev/null 2>&1 || { echo "deps=failed uikittools"; exit 4; }
+command -v open >/dev/null 2>&1 || echo "deps=warn com.conradkramer.open"
+exit 0"""
 
 # sshpass exit codes
 WRONG_PASSWORD = 5
@@ -69,6 +86,14 @@ class SSHClient:
         return Result(proc.returncode, out.decode("utf-8", "replace"), err.decode("utf-8", "replace"))
 
     @staticmethod
+    def _checked(host: str) -> str:
+        # Last line of defence: never pass anything but an address to ssh/scp
+        try:
+            return normalize_host(host)
+        except InvalidHost as err:
+            raise SSHError(str(err)) from err
+
+    @staticmethod
     def _check(result: Result, host: str) -> Result:
         if result.code == 0:
             return result
@@ -82,12 +107,15 @@ class SSHClient:
 
     async def run(self, host: str, password: str, command: str, timeout: float = 60, check: bool = True,
                   stdin: bytes | None = None) -> Result:
+        host = self._checked(host)
         args = ["ssh", *self._options(), f"root@{host}", command]
         result = await self._exec(args, password, timeout, stdin)
         return self._check(result, host) if check else result
 
     async def copy_to(self, host: str, password: str, local: str, remote: str, timeout: float = 600) -> None:
-        args = ["scp", *self._options(), "-r", local, f"root@{host}:{remote}"]
+        host = self._checked(host)
+        target = f"[{host}]" if is_ipv6(host) else host
+        args = ["scp", *self._options(), "-r", "--", local, f"root@{target}:{remote}"]
         self._check(await self._exec(args, password, timeout), host)
 
     async def write_file(self, host: str, password: str, remote: str, data: bytes, mode: str = "600",
@@ -103,6 +131,7 @@ class SSHClient:
         await self.run(host, password, "true", timeout=30)
 
     async def forget_host_key(self, host: str) -> None:
+        host = self._checked(host)
         proc = await asyncio.create_subprocess_exec(
             "ssh-keygen", "-R", host, "-f", self.known_hosts,
             stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
@@ -110,14 +139,38 @@ class SSHClient:
 
     # --- wallPad maintenance --------------------------------------------------------
 
+    async def ensure_dependencies(self, host: str, password: str, log) -> None:
+        """Installs missing Cydia packages that installing Jeeves needs."""
+        log("Checking Cydia packages…")
+        result = await self.run(host, password, DEPENDENCIES_SCRIPT, check=False, timeout=600)
+        if result.code == WRONG_PASSWORD:
+            self._check(result, host)
+        for line in result.stdout.splitlines():
+            if line.strip() and not line.startswith("deps="):
+                log(line.strip())
+        if result.code == 3:
+            missing = result.stdout.split("deps=noapt", 1)[-1].split()
+            raise SSHError(f"{host} is missing Cydia packages ({', '.join(missing)}) and has no apt-get to install them")
+        if result.code == 4:
+            raise SSHError("Couldn't install UIKit Tools (uikittools) on the iPad. Install it from Cydia, then try again.")
+        if result.code != 0:
+            self._check(result, host)
+        if "deps=warn" in result.stdout:
+            log("Note: couldn't install Open (com.conradkramer.open), so Jeeves can't be started remotely. "
+                "Start it from the home screen.")
+
     async def install_app(self, host: str, password: str, app_dir: str, log) -> None:
         """Installs Payload/Jeeves.app (deploy_common.sh's jeeves_install)."""
+        await self.ensure_dependencies(host, password, log)
         log("Stopping Jeeves if it's running…")
         await self.run(host, password, "killall Jeeves 2>/dev/null || true")
         log("Removing the old HomeButler app if present…")
         await self.run(host, password,
                        "if [ -d /Applications/HomeButler.app ]; then killall HomeButler 2>/dev/null; "
                        "rm -rf /Applications/HomeButler.app && uicache; fi; rm -rf /Applications/Jeeves.app")
+        # Start from an empty app folder: scp won't create it (the iPad's SFTP server can't
+        # resolve a target that doesn't exist yet), and removing it clears out old files
+        await self.run(host, password, f"mkdir -p {APP_PATH}")
         log("Copying the app to the iPad…")
         await self.copy_to(host, password, app_dir, "/Applications/")
         log("Setting permissions and refreshing the home screen…")

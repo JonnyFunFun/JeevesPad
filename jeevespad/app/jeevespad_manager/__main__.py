@@ -10,7 +10,7 @@ import signal
 
 from aiohttp import web
 
-from .manager import Manager
+from .manager import Manager, ManagerError
 from .server import create_app
 
 _LOGGER = logging.getLogger("jeevespad_manager")
@@ -24,13 +24,28 @@ def load_options(data_dir: str) -> dict:
         return {}
 
 
+async def listen_addresses(manager: Manager, dev: bool) -> list[str]:
+    """Where to listen. The app is on the host network (for Bonjour), so listen only where
+    it's needed: the Supervisor's network (ingress) and localhost (the integration, as Home
+    Assistant shares the host network). Not on the LAN."""
+    if os.environ.get("JEEVES_BIND"):
+        return [a.strip() for a in os.environ["JEEVES_BIND"].split(",") if a.strip()]
+    if dev or not manager.supervisor.available or manager.options.get("listen_on_all_addresses"):
+        return ["0.0.0.0"]
+    return ["127.0.0.1", await manager.supervisor.network_gateway()]
+
+
 async def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     data_dir = os.environ.get("JEEVES_DATA", "/data")
     dev = os.environ.get("JEEVES_DEV") == "1"
     os.makedirs(data_dir, exist_ok=True)
 
-    manager = Manager(data_dir, load_options(data_dir))
+    try:
+        manager = Manager(data_dir, load_options(data_dir))
+    except ManagerError as err:
+        _LOGGER.error("%s", err)
+        raise SystemExit(1) from err
     port = int(os.environ.get("PORT", "0"))
     if not port:
         try:
@@ -41,7 +56,16 @@ async def main() -> None:
 
     runner = web.AppRunner(create_app(manager, dev=dev))
     await runner.setup()
-    await web.TCPSite(runner, "0.0.0.0", port).start()
+    for address in await listen_addresses(manager, dev):
+        try:
+            await web.TCPSite(runner, address, port).start()
+        except OSError as err:
+            if address in ("127.0.0.1", "0.0.0.0"):
+                raise
+            # Shouldn't happen on Home Assistant OS; requests are still checked, so fall back
+            _LOGGER.error("Couldn't listen on %s (%s); listening on all addresses instead", address, err)
+            await web.TCPSite(runner, "0.0.0.0", port).start()
+            break
     await manager.start()
     _LOGGER.info("JeevesPad Manager listening on port %s (fleet code %s)", port,
                  "generated" if manager.fleet_code_is_generated else "from configuration")

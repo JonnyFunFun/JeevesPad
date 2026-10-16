@@ -32,6 +32,8 @@ Jeeves_FILES = Jeeves/main.m \
 	Jeeves/Helpers/JeevesMotionDetector.m \
 	Jeeves/Helpers/JeevesFleetCrypto.m \
 	Jeeves/Helpers/JeevesPhonePairer.m \
+	Jeeves/Helpers/JeevesGuidedAccess.m \
+	Jeeves/Helpers/JeevesMaintenance.m \
 	Jeeves/Theme/JeevesThemeManager.m \
 	Jeeves/Views/EntityCell.m \
 	Jeeves/Views/JeevesRoomCell.m \
@@ -63,6 +65,7 @@ Jeeves_FILES = Jeeves/main.m \
 	Jeeves/ViewControllers/JeevesPresenceViewController.m \
 	Jeeves/ViewControllers/JeevesAddPhoneViewController.m \
 	Jeeves/ViewControllers/JeevesPairPhoneViewController.m \
+	Jeeves/ViewControllers/JeevesGuidedAccessViewController.m \
 	Jeeves/ViewControllers/JeevesEntityMoreInfoViewController.m
 
 Jeeves_FRAMEWORKS = UIKit Foundation CFNetwork CoreGraphics QuartzCore AVFoundation CoreMedia CoreVideo CoreBluetooth Security

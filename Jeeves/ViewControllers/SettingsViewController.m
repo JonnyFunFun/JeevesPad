@@ -7,6 +7,7 @@
 #import "JeevesIdleManager.h"
 #import "JeevesFleetViewController.h"
 #import "JeevesPresenceViewController.h"
+#import "JeevesGuidedAccessViewController.h"
 #import "JeevesMotionDetector.h"
 #import "JeevesJellyfinClient.h"
 #import "JeevesJellyfinTarget.h"
@@ -252,6 +253,15 @@
     presenceButton.titleLabel.font = [UIFont systemFontOfSize:16];
     [presenceButton addTarget:self action:@selector(presenceTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.contentView addSubview:presenceButton];
+    yOffset += 54;
+
+    UIButton *guidedButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    guidedButton.frame = CGRectMake(padding, yOffset, self.view.bounds.size.width - 2 * padding, 44);
+    [guidedButton setTitle:@"Guided Access (Keep This iPad in Jeeves)\u2026" forState:UIControlStateNormal];
+    [guidedButton setTitleColor:[theme accentColor] forState:UIControlStateNormal];
+    guidedButton.titleLabel.font = [UIFont systemFontOfSize:16];
+    [guidedButton addTarget:self action:@selector(guidedAccessTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.contentView addSubview:guidedButton];
     yOffset += 54;
 
     // --- Jellyfin section ---
@@ -559,6 +569,13 @@
 - (void)fleetTapped {
     [self dismissKeyboard];
     [self.navigationController pushViewController:[[JeevesFleetViewController alloc] init] animated:YES];
+}
+
+#pragma mark - Guided Access
+
+- (void)guidedAccessTapped {
+    [self dismissKeyboard];
+    [self.navigationController pushViewController:[[JeevesGuidedAccessViewController alloc] init] animated:YES];
 }
 
 #pragma mark - Presence

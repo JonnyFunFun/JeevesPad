@@ -191,6 +191,17 @@ When a light's card has room, its controls appear directly on the card: a bright
 
 Lights with effects always show an **effect** button (✨) on the card's bottom row, right-aligned beside the on/off status, whatever the card's size.
 
+## Guided Access
+
+Guided Access keeps a wallPad in Jeeves. Jeeves can start and end it itself (Settings → Guided Access), and so can Home Assistant: the wallPad's card in the JeevesPad Manager app, or the **Guided Access** switch from the JeevesPad integration (for example in an automation). Each wallPad remembers whether it should be in Guided Access, and goes back into it after Jeeves or the iPad restarts.
+
+- **Unlock code:** sessions Jeeves starts have no Guided Access passcode, so Jeeves asks for its own unlock code before ending one at the panel. Set it once on the app's **Fleet** tab (or in Settings → Guided Access on an iPad, outside Guided Access); it's shared with every wallPad, including ones you set up later.
+- **Supervision required:** iOS only lets an app start Guided Access on a **supervised** iPad whose configuration profile allows it: in the profile's Restrictions, list `com.jeeves.Jeeves` under `autonomousSingleAppModePermittedAppIDs`. Supervising an iPad with Apple Configurator erases it, so on a jailbroken iPad do this before jailbreaking. On an unsupervised iPad, starting Guided Access fails with a message saying so; you can still use Guided Access by hand (Settings → General → Accessibility → Guided Access, then triple-click the Home button in Jeeves), but then it can't be controlled from Home Assistant.
+
+## Maintenance Mode
+
+The JeevesPad Manager app (or the integration's **Maintenance mode** switch) can lock a wallPad behind a full-screen maintenance notice, with your own message, until it's turned off; it survives restarts. At the panel, holding the notice for 5 seconds and entering the unlock code (the Guided Access unlock code) also ends it, so a panel can't be stranded if Home Assistant is down.
+
 ## Fleets: Sharing Settings Between iPads
 
 iPads running Jeeves on the same network discover each other (Bonjour) and can share their settings, so you only set up one. Open **Settings → Fleet**:
@@ -207,7 +218,8 @@ The receiving iPad applies the settings straight away and shows a brief notice.
 | Rooms, Home cards, card names and sizes | Jellyfin sign-in and playback target |
 | Home weather settings | Wake on motion |
 | Idle timeout and dimming | Last-viewed dashboard and screen brightness |
-| Jellyfin on/off and server | |
+| Jellyfin on/off and server | Whether Guided Access is on |
+| Guided Access unlock code | |
 
 Settings include your Home Assistant token, so everything sent between iPads is encrypted and authenticated with the fleet code (AES-256 and HMAC-SHA256, with a key derived by PBKDF2). iPads without the same code can neither change this iPad's settings nor read them. Requests are rejected if the two iPads' clocks differ by more than 10 minutes.
 
@@ -223,7 +235,7 @@ HACS only installs integrations (and dashboard cards, themes and the like), not 
 1. **App:** Settings → Apps → App store → ⋮ → Repositories, add `https://github.com/JonnyFunFun/JeevesPad`, then install **JeevesPad Manager**. See its [documentation](jeevespad/DOCS.md).
 2. **Integration:** HACS → ⋮ → Custom repositories, add `https://github.com/JonnyFunFun/JeevesPad` as an *Integration*, install **JeevesPad** and restart Home Assistant. Home Assistant then offers to add the wallPads found by the app.
 
-The app reaches wallPads two ways: through Jeeves's fleet protocol (the same encrypted connection iPads use to share settings, so wallPads need fleet sync on and the app's fleet code; **Enrol in this fleet** sets that up over SSH), and over SSH for installing, updating, restarting and rebooting. It installs the published `Jeeves.ipa` from this repository's GitHub releases, or your own build from `build_ipa.sh` if you upload one (yours takes precedence until you remove it); it can't build Jeeves itself.
+The app reaches wallPads two ways: through Jeeves's fleet protocol (the same encrypted connection iPads use to share settings, so wallPads need fleet sync on and the app's fleet code; **Enroll in this fleet** sets that up over SSH), and over SSH for installing, updating, restarting and rebooting. It installs the published `Jeeves.ipa` from this repository's GitHub releases, or your own build from `build_ipa.sh` if you upload one (yours takes precedence until you remove it); it can't build Jeeves itself.
 
 ## Presence: Tracking Phones with Bermuda
 
@@ -430,6 +442,7 @@ The app icon is drawn in `tools/AppIcon.svg`; after editing it, run `tools/rende
 
 - The Home Assistant token and Jellyfin access token are stored in the app's preferences (`NSUserDefaults`); the Jellyfin password is not stored
 - To read paired phones' Bluetooth keys, Jeeves is signed with access to the iPad's `apple` keychain group (`entitlements.plist`), where iOS's Bluetooth service keeps them. That group also holds other Apple services' items; Jeeves only reads `MobileBluetooth` items, and only while pairing
+- Fleet sharing (and the JeevesPad Manager app) talk to each iPad over the local network. Every request is encrypted and authenticated with the fleet code (at least 8 characters), only accepted once and within 10 minutes of being sent, and an iPad handles at most 8 connections at a time
 - `NSAllowsArbitraryLoads` is enabled so the app can reach servers over plain HTTP on your network
 - Both API clients accept any TLS certificate, so self-signed certificates work — but this also means HTTPS connections aren't protected against interception. Prefer using Jeeves on a trusted network.
 

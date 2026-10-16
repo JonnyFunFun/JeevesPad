@@ -44,5 +44,13 @@ class JeevesPadClient:
             body["value"] = value
         await self._request("POST", f"/wallpads/{pad_id}/command", body)
 
+    async def guided_access(self, pad_id: str, on: bool) -> None:
+        """Starts or ends Guided Access; fails if iOS didn't allow it."""
+        await self._request("POST", f"/wallpads/{pad_id}/guided-access", {"on": on})
+
+    async def maintenance(self, pad_id: str, on: bool) -> None:
+        """Locks the wallPad behind its maintenance notice, or unlocks it."""
+        await self._request("POST", f"/wallpads/{pad_id}/maintenance", {"on": on})
+
     async def ssh_action(self, pad_id: str, action: str) -> None:
         await self._request("POST", f"/wallpads/{pad_id}/ssh/{action}", {})

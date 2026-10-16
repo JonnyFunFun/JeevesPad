@@ -5,6 +5,8 @@
 #import "JeevesIdleManager.h"
 #import "HAAPIClient.h"
 #import "AppDelegate.h"
+#import "JeevesGuidedAccess.h"
+#import "JeevesMaintenance.h"
 #import <UIKit/UIKit.h>
 #import <sys/sysctl.h>
 
@@ -15,6 +17,8 @@ static const NSInteger kProtocolVersion = 1;
 static const NSUInteger kMaxMessageLength = 4 * 1024 * 1024;
 static const NSTimeInterval kConnectionTimeout = 15.0;
 static const NSTimeInterval kMaxClockSkew = 600; // reject messages older/newer than this (replay protection)
+static const NSUInteger kMaxIncomingConnections = 8;
+static const NSUInteger kMaxRememberedRequests = 2000;
 
 #pragma mark - Peer
 
@@ -174,6 +178,9 @@ static NSMutableSet<JeevesFleetConnection *> *ActiveConnections(void) {
 @property (nonatomic, strong) NSMutableArray<JeevesFleetPeer *> *mutablePeers;
 @property (nonatomic, strong) JeevesFleetCrypto *crypto;
 @property (nonatomic, copy) NSString *cryptoCode;
+// MACs of requests already answered, with when they arrived: a request is only valid for
+// kMaxClockSkew either side of its timestamp, so remembering it that long stops replays
+@property (nonatomic, strong) NSMutableDictionary<NSData *, NSDate *> *seenRequests;
 @end
 
 @implementation JeevesFleetService
@@ -191,6 +198,7 @@ static NSMutableSet<JeevesFleetConnection *> *ActiveConnections(void) {
     self = [super init];
     if (self) {
         _mutablePeers = [NSMutableArray array];
+        _seenRequests = [NSMutableDictionary dictionary];
     }
     return self;
 }
@@ -210,7 +218,7 @@ static NSMutableSet<JeevesFleetConnection *> *ActiveConnections(void) {
 // Key derivation is deliberately slow, so cache it per fleet code
 - (JeevesFleetCrypto *)cryptoForCurrentCode {
     NSString *code = [JeevesFleetSettings sharedSettings].fleetCode;
-    if (code.length == 0) return nil;
+    if (code.length < JeevesFleetMinimumCodeLength) return nil;
     if (![code isEqualToString:self.cryptoCode]) {
         self.crypto = [[JeevesFleetCrypto alloc] initWithFleetCode:code];
         self.cryptoCode = code;
@@ -331,6 +339,12 @@ static NSMutableSet<JeevesFleetConnection *> *ActiveConnections(void) {
 
 - (void)netService:(NSNetService *)sender didAcceptConnectionWithInputStream:(NSInputStream *)inputStream outputStream:(NSOutputStream *)outputStream {
     dispatch_async(dispatch_get_main_queue(), ^{
+        if (ActiveConnections().count >= kMaxIncomingConnections) {
+            // Busy (or being flooded): refuse rather than queue
+            [inputStream close];
+            [outputStream close];
+            return;
+        }
         JeevesFleetConnection *connection = [[JeevesFleetConnection alloc] initWithInput:inputStream output:outputStream];
         connection.messageHandler = ^(JeevesFleetConnection *conn, NSDictionary *message) {
             [conn sendMessage:[self responseToRequest:message] closeAfterward:YES];
@@ -347,8 +361,12 @@ static NSMutableSet<JeevesFleetConnection *> *ActiveConnections(void) {
 - (NSDictionary *)responseToRequest:(NSDictionary *)request {
     JeevesFleetSettings *settings = [JeevesFleetSettings sharedSettings];
     JeevesFleetCrypto *crypto = [self cryptoForCurrentCode];
-    if (!settings.enabled || !crypto) {
+    if (!settings.enabled) {
         return [self errorResponse:[NSString stringWithFormat:@"Fleet sync is turned off on %@", [self deviceName]]];
+    }
+    if (!crypto) {
+        return [self errorResponse:[NSString stringWithFormat:@"%@'s fleet code is missing or shorter than %lu characters",
+                                    [self deviceName], (unsigned long)JeevesFleetMinimumCodeLength]];
     }
 
     NSDictionary *payload = [self openBox:request[@"box"] withCrypto:crypto];
@@ -357,6 +375,7 @@ static NSMutableSet<JeevesFleetConnection *> *ActiveConnections(void) {
     }
     NSString *error = [self validatePayload:payload];
     if (error) return [self errorResponse:error];
+    if ([self isReplay:request[@"box"]]) return [self errorResponse:@"Request already handled"];
 
     NSString *type = request[@"type"];
     NSString *from = [payload[@"from"] isKindOfClass:[NSString class]] ? payload[@"from"] : @"another iPad";
@@ -388,7 +407,7 @@ static NSMutableSet<JeevesFleetConnection *> *ActiveConnections(void) {
 
 // Requests this version understands, so managers can tell what an iPad supports
 + (NSArray<NSString *> *)features {
-    return @[@"push", @"pull", @"status", @"command", @"rooms", @"provisioning"];
+    return @[@"push", @"pull", @"status", @"command", @"rooms", @"provisioning", @"guided_access", @"maintenance"];
 }
 
 - (NSString *)hardwareModel {
@@ -415,6 +434,7 @@ static NSMutableSet<JeevesFleetConnection *> *ActiveConnections(void) {
     JeevesIdleManager *idle = [JeevesIdleManager sharedManager];
     HAAPIClient *client = [HAAPIClient sharedClient];
     NSProcessInfo *process = [NSProcessInfo processInfo];
+    JeevesGuidedAccess *guided = [JeevesGuidedAccess sharedManager];
     return @{@"id": [JeevesBatteryReporter sharedReporter].instanceIdentifier ?: @"",
              @"name": [self deviceName],
              @"model": [self hardwareModel],
@@ -431,7 +451,31 @@ static NSMutableSet<JeevesFleetConnection *> *ActiveConnections(void) {
              @"haConnected": @(client.isConnected),
              @"systemUptime": @(process.systemUptime),
              @"physicalMemory": @(process.physicalMemory),
+             @"guidedAccess": @(guided.active),
+             @"guidedAccessWanted": @(guided.wanted),
+             @"guidedAccessError": guided.lastError ?: @"",
+             @"guidedAccessCodeSet": @(guided.unlockCode != nil),
+             @"maintenance": @([JeevesMaintenance sharedManager].active),
+             @"maintenanceMessage": [JeevesMaintenance sharedManager].active ? [JeevesMaintenance sharedManager].message : @"",
              @"features": [[self class] features]};
+}
+
+// Whether this request (identified by its MAC) was already answered; remembers it if not
+- (BOOL)isReplay:(NSData *)box {
+    NSDate *now = [NSDate date];
+    NSArray *expired = [self.seenRequests keysOfEntriesPassingTest:^BOOL(NSData *mac, NSDate *seen, BOOL *stop) {
+        return [now timeIntervalSinceDate:seen] > kMaxClockSkew * 2;
+    }].allObjects;
+    [self.seenRequests removeObjectsForKeys:expired];
+
+    NSData *mac = [box subdataWithRange:NSMakeRange(box.length - 32, 32)]; // open: succeeded, so it's long enough
+    if (self.seenRequests[mac]) return YES;
+    if (self.seenRequests.count >= kMaxRememberedRequests) {
+        // Can't remember more: refusing is safer than forgetting (only a flood gets here)
+        return YES;
+    }
+    self.seenRequests[mac] = now;
+    return NO;
 }
 
 #pragma mark - Sealing
@@ -468,7 +512,8 @@ static NSMutableSet<JeevesFleetConnection *> *ActiveConnections(void) {
          completion:(void (^)(NSDictionary *response, NSString *error))completion {
     JeevesFleetCrypto *crypto = [self cryptoForCurrentCode];
     if (![JeevesFleetSettings sharedSettings].enabled || !crypto) {
-        completion(nil, @"Turn on fleet sync and set the fleet code first");
+        completion(nil, [NSString stringWithFormat:@"Turn on fleet sync and set a fleet code of at least %lu characters first",
+                         (unsigned long)JeevesFleetMinimumCodeLength]);
         return;
     }
     NSInputStream *input = nil;

@@ -22,6 +22,7 @@ from typing import Any, Awaitable, Callable
 
 from . import fleet, settings
 from .discovery import Advertisement, Discovery
+from .hosts import InvalidHost, normalize_host
 from .package import DEFAULT_URL, PackageError, PackageStore
 from .ssh import PROVISION_PATH, SSHClient, SSHError
 from .supervisor import Supervisor
@@ -29,6 +30,13 @@ from .supervisor import Supervisor
 _LOGGER = logging.getLogger(__name__)
 
 STATUS_INTERVAL = 60
+# Remote commands Jeeves understands ("guided_access" has its own method)
+COMMANDS = ("home", "reload", "wake", "identify", "brightness")
+MIN_FLEET_CODE = 8
+MAX_MAINTENANCE_MESSAGE = 500
+MAX_WALLPADS = 200  # anything on the network can advertise itself; don't let it fill the list
+GUIDED_ACCESS_CODE_KEY = "JeevesGuidedAccessCode"
+GUIDED_ACCESS_WAIT = 6  # seconds to wait for iOS to start or end Guided Access
 WAIT_FOR_APP = 90  # seconds to wait for a freshly installed Jeeves to advertise itself
 MAX_JOBS = 30
 
@@ -37,12 +45,17 @@ MAX_JOBS = 30
 class WallPad:
     id: str
     name: str
-    host: str | None = None          # last known address
+    # Addresses. Bonjour can be spoofed by anything on the network, so an advertised
+    # address (seen_host) is only used for fleet requests, which are authenticated. It
+    # becomes `host`, and is used for SSH (which sends the root password), once the iPad
+    # there has answered a fleet request, proving it has the fleet code.
+    host: str | None = None          # last verified address
     ssh_host: str | None = None      # set by hand, or the address it was set up at
     ssh_password: str | None = None  # if it differs from the app's root password option
     added: float = field(default_factory=time.time)
     # Not persisted
     port: int | None = None
+    seen_host: str | None = None     # address Bonjour advertises (not yet trusted for SSH)
     online: bool = False
     app_version: str | None = None
     sync_enabled: bool | None = None
@@ -103,9 +116,13 @@ class Manager:
         self._tasks: set[asyncio.Task] = set()
         self.fleet_code = self._load_fleet_code()
         self.api_key = self._load_secret("api_key")
+        self.unlock_code_path = os.path.join(data_dir, "guided_access_code")
         self._load_store()
         for host in options.get("extra_hosts") or []:
-            self.add_manual(host, save=False)
+            try:
+                self.add_manual(host, save=False)
+            except ManagerError as err:
+                _LOGGER.error("Ignoring extra wallPad address: %s", err)
 
     # --- configuration --------------------------------------------------------------
 
@@ -127,6 +144,11 @@ class Manager:
     def _load_fleet_code(self) -> str:
         configured = (self.options.get("fleet_code") or "").strip()
         if configured:
+            if len(configured) < MIN_FLEET_CODE:
+                # It's the key to every wallPad's settings (including Home Assistant tokens),
+                # and a captured request could be used to guess a short one offline
+                raise ManagerError(f"The fleet code must be at least {MIN_FLEET_CODE} characters. Change it in the "
+                                   "app's configuration, or leave it empty to have one generated.")
             return configured
         path = os.path.join(self.data_dir, "fleet_code")
         try:
@@ -209,9 +231,9 @@ class Manager:
             pad = self._pad_for_advertisement(ad)
             seen.add(pad.id)
             first_sighting = not pad.online
-            if (pad.name, pad.host) != (ad.name, ad.host):
+            if pad.name != ad.name:
                 changed = True
-            pad.name, pad.host, pad.port = ad.name, ad.host, ad.port
+            pad.name, pad.seen_host, pad.port = ad.name, ad.host, ad.port
             pad.online, pad.app_version, pad.sync_enabled = True, ad.app_version, ad.sync_enabled
             if first_sighting:
                 self._spawn(self.refresh_status(pad.id))
@@ -225,7 +247,10 @@ class Manager:
         pad_id = ad.instance_id or f"name:{ad.name}"
         pad = self.wallpads.get(pad_id)
         if pad is None:
-            pad = WallPad(id=pad_id, name=ad.name, host=ad.host)
+            if len(self.wallpads) >= MAX_WALLPADS:
+                _LOGGER.warning("Ignoring %s: already tracking %d wallPads", ad.name, MAX_WALLPADS)
+                return WallPad(id=pad_id, name=ad.name)  # not kept
+            pad = WallPad(id=pad_id, name=ad.name)
             # Fold in an entry for the same iPad added by address, or seen before the app
             # advertised its install ID
             for other in list(self.wallpads.values()):
@@ -239,9 +264,10 @@ class Manager:
         return pad
 
     def add_manual(self, host: str, name: str | None = None, save: bool = True) -> WallPad:
-        host = host.strip()
-        if not host:
-            raise ManagerError("Enter the iPad's IP address or host name")
+        try:
+            host = normalize_host(host)
+        except InvalidHost as err:
+            raise ManagerError(str(err)) from err
         for pad in self.wallpads.values():
             if host in (pad.host, pad.ssh_host):
                 return pad
@@ -264,7 +290,11 @@ class Manager:
     def update_pad(self, pad_id: str, data: dict) -> WallPad:
         pad = self.get(pad_id)
         if "ssh_host" in data:
-            pad.ssh_host = (data.get("ssh_host") or "").strip() or None
+            value = (data.get("ssh_host") or "").strip()
+            try:
+                pad.ssh_host = normalize_host(value) if value else None
+            except InvalidHost as err:
+                raise ManagerError(str(err)) from err
         if "ssh_password" in data:
             pad.ssh_password = data.get("ssh_password") or None
         self.save()
@@ -276,14 +306,19 @@ class Manager:
     # --- in-app channel -------------------------------------------------------------
 
     async def _fleet(self, pad: WallPad, rtype: str, payload: dict | None = None) -> dict:
-        if not pad.online or not pad.port:
+        if not pad.online or not pad.port or not pad.seen_host:
             raise ManagerError(f"{pad.name} isn't running Jeeves on the network right now")
         try:
-            return await fleet.request(pad.host, pad.port, self.fleet_code, rtype, payload, device_name=pad.name)
+            response = await fleet.request(pad.seen_host, pad.port, self.fleet_code, rtype, payload, device_name=pad.name)
+            if pad.host != pad.seen_host and pad.id in self.wallpads:
+                # It answered with the fleet code: this address really is this wallPad
+                pad.host = pad.seen_host
+                self.save()
+            return response
         except fleet.FleetError as err:
             message = str(err)
             if "turned off" in message or "different fleet code" in message:
-                message += ". Enrol it (over SSH) or set this fleet code in Settings → Fleet on the iPad."
+                message += ". Enroll it (over SSH) or set this fleet code in Settings → Fleet on the iPad."
             raise ManagerError(message) from err
 
     async def refresh_status(self, pad_id: str) -> WallPad:
@@ -360,7 +395,93 @@ class Manager:
                 results[target_id] = str(err)
         return results
 
+    # --- Guided Access ----------------------------------------------------------------
+
+    @property
+    def unlock_code(self) -> str | None:
+        """The code that ends Guided Access on wallPads (a shared Jeeves setting)."""
+        try:
+            with open(self.unlock_code_path) as f:
+                return f.read().strip() or None
+        except OSError:
+            return None
+
+    async def set_unlock_code(self, code: str | None) -> dict:
+        """Saves the unlock code (for new wallPads too) and sends it to every wallPad."""
+        code = (code or "").strip() or None
+        if code is not None and not code.isdigit():
+            raise ManagerError("The unlock code must be digits only (it's typed on a number pad)")
+        if code is None:
+            if os.path.exists(self.unlock_code_path):
+                os.remove(self.unlock_code_path)
+        else:
+            with open(self.unlock_code_path, "w") as f:
+                f.write(code)
+            os.chmod(self.unlock_code_path, 0o600)
+
+        snapshot = {"keys": [GUIDED_ACCESS_CODE_KEY], "values": {GUIDED_ACCESS_CODE_KEY: code} if code else {}}
+        results: dict[str, str | None] = {}
+        for pad in [p for p in self.wallpads.values() if p.online]:
+            if "guided_access" not in self._features(pad):
+                results[pad.id] = "Needs a newer version of Jeeves"
+                continue
+            try:
+                await self._push(pad, snapshot)
+                results[pad.id] = None
+            except ManagerError as err:
+                results[pad.id] = str(err)
+        return results
+
+    async def set_guided_access(self, pad_id: str, on: bool) -> WallPad:
+        """Starts or ends Guided Access, and waits to see whether iOS allowed it."""
+        pad = self.get(pad_id)
+        if "guided_access" not in self._features(pad):
+            await self.refresh_status(pad_id)
+            if "guided_access" not in self._features(pad):
+                raise ManagerError(f"{pad.name} needs a newer version of Jeeves for Guided Access")
+        await self._fleet(pad, "command", {"command": "guided_access", "value": on})
+        for _ in range(GUIDED_ACCESS_WAIT):
+            await asyncio.sleep(1)
+            await self.refresh_status(pad_id)
+            status = pad.status or {}
+            if status.get("guidedAccess") == on:
+                return pad
+            if status.get("guidedAccessError"):
+                raise ManagerError(status["guidedAccessError"])
+        raise ManagerError(f"{pad.name} didn't {'start' if on else 'end'} Guided Access")
+
+    async def set_maintenance(self, pad_id: str, on: bool, message: str | None = None) -> WallPad:
+        """Locks the wallPad behind a maintenance notice, or unlocks it."""
+        if not isinstance(on, bool):
+            raise ManagerError("Say whether maintenance mode should be on or off")
+        if message is not None and not isinstance(message, str):
+            raise ManagerError("The maintenance message must be text")
+        message = (message or "").strip()
+        if len(message) > MAX_MAINTENANCE_MESSAGE:
+            raise ManagerError(f"Keep the maintenance message under {MAX_MAINTENANCE_MESSAGE} characters")
+        pad = self.get(pad_id)
+        if "maintenance" not in self._features(pad):
+            await self.refresh_status(pad_id)
+            if "maintenance" not in self._features(pad):
+                raise ManagerError(f"{pad.name} needs a newer version of Jeeves for maintenance mode")
+        value: dict[str, Any] = {"on": on}
+        if message:
+            value["message"] = message
+        await self._fleet(pad, "command", {"command": "maintenance", "value": value})
+        await self.refresh_status(pad_id)
+        if (pad.status or {}).get("maintenance") != on:
+            raise ManagerError(f"{pad.name} didn't {'start' if on else 'end'} maintenance mode")
+        return pad
+
     async def command(self, pad_id: str, command: str, value: Any = None) -> None:
+        if command not in COMMANDS:
+            raise ManagerError(f"Unknown command {command!r}")
+        if command == "brightness":
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value <= 1:
+                raise ManagerError("Brightness must be a number from 0 to 1")
+            value = float(value)
+        else:
+            value = None
         pad = self.get(pad_id)
         if "command" not in self._features(pad):
             await self.refresh_status(pad_id)
@@ -486,6 +607,12 @@ class Manager:
                 raise ManagerError("Enter the Home Assistant URL and access token for the wallPad "
                                    "(or set them in the app's configuration)")
             provision["settings"] = settings.connection_snapshot(url, token)
+        code = self.unlock_code
+        if code:
+            snapshot = provision.setdefault("settings", {"keys": [], "values": {}})
+            if GUIDED_ACCESS_CODE_KEY not in snapshot["keys"]:
+                snapshot["keys"].append(GUIDED_ACCESS_CODE_KEY)
+            snapshot["values"][GUIDED_ACCESS_CODE_KEY] = code
         return provision
 
     async def _write_provision(self, host: str, password: str, provision: dict) -> None:
@@ -495,9 +622,10 @@ class Manager:
     def provision(self, host: str, password: str | None, settings_source: str | None,
                   ha_url: str | None = None, ha_token: str | None = None) -> Job:
         """Installs Jeeves on a newly jailbroken iPad and adds it to the fleet."""
-        host = host.strip()
-        if not host:
-            raise ManagerError("Enter the iPad's IP address")
+        try:
+            host = normalize_host(host)
+        except InvalidHost as err:
+            raise ManagerError(str(err)) from err
         pw = password or self.ssh_password
 
         async def work(job: Job):
@@ -511,11 +639,6 @@ class Manager:
                     raise
                 tools = await self.ssh.tools_report(host, pw)
                 job.add(f"Connected: {tools.get('model') or 'iPad'}, iOS {tools.get('ios') or '?'}.")
-                if tools.get("uicache") != "1":
-                    raise ManagerError("The iPad is missing uicache. Install \"UIKit Tools\" from Cydia, then try again.")
-                if tools.get("open") != "1" and tools.get("uiopen") != "1":
-                    job.add("Note: neither \"open\" nor \"uiopen\" is installed, so Jeeves can't be started "
-                            "remotely. Install \"Open\" from Cydia, or start Jeeves from the home screen.")
                 if tools.get("ios", "").split(".")[0] not in ("9", ""):
                     job.add(f"Note: Jeeves is made for iOS 9; this iPad has iOS {tools.get('ios')}.")
 
@@ -545,7 +668,7 @@ class Manager:
 
         return self.start_job(f"Set up {host}", self._installing(work))
 
-    def enrol(self, pad_id: str, password: str | None, settings_source: str | None) -> Job:
+    def enroll(self, pad_id: str, password: str | None, settings_source: str | None) -> Job:
         """Adds a wallPad that already runs Jeeves to the fleet: sets its fleet code over SSH."""
         pad = self.get(pad_id)
         host, pw = self._ssh_target(pad, password)
@@ -567,7 +690,7 @@ class Manager:
                 await self.refresh_status(pad.id)
             return {"wallpad": pad.id}
 
-        return self.start_job(f"Enrol {pad.name}", work)
+        return self.start_job(f"Enroll {pad.name}", work)
 
     def update_app(self, pad_ids: list[str]) -> Job:
         """Installs the current app package on wallPads (settings are kept)."""

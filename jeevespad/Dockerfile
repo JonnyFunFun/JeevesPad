@@ -1,6 +1,6 @@
 FROM ghcr.io/home-assistant/base-python:3.13-alpine3.24
 
-ARG BUILD_VERSION=0.1.1
+ARG BUILD_VERSION=0.1.2
 ARG BUILD_ARCH=amd64
 
 # ssh/scp/sshpass: installing and maintaining wallPads (the same commands deploy.sh uses)

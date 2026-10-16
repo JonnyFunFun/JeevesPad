@@ -7,6 +7,8 @@
 #import "JeevesIdleManager.h"
 #import "JeevesFleetService.h"
 #import "JeevesFleetSettings.h"
+#import "JeevesGuidedAccess.h"
+#import "JeevesMaintenance.h"
 
 @interface AppDelegate ()
 
@@ -58,6 +60,12 @@ static NSString * const kLegacyPreferencesDomain = @"com.homebutler.HomeButler";
         [weakSelf returnToHome];
     };
     [idle start];
+
+    // Guided Access requested from Home Assistant (or this iPad) comes back after a restart
+    [[JeevesGuidedAccess sharedManager] start];
+
+    // Maintenance mode turned on from Home Assistant stays on across restarts
+    [[JeevesMaintenance sharedManager] start];
 
     // Fleet: advertise this iPad (Bonjour) and accept settings from other iPads
     [[JeevesFleetService sharedService] start];
@@ -166,6 +174,16 @@ static NSString * const kLegacyPreferencesDomain = @"com.homebutler.HomeButler";
     } else if ([command isEqualToString:@"identify"]) {
         [idle userDidInteract];
         [self showNoticeWithTitle:[UIDevice currentDevice].name message:@"Identified from Home Assistant" duration:5];
+    } else if ([command isEqualToString:@"guided_access"]) {
+        if (![value isKindOfClass:[NSNumber class]]) return @"guided_access needs true or false";
+        // The outcome arrives asynchronously; the status request reports it
+        [[JeevesGuidedAccess sharedManager] setWanted:[value boolValue] completion:nil];
+    } else if ([command isEqualToString:@"maintenance"]) {
+        // value: {on: bool, message: optional text for the notice}
+        NSDictionary *options = [value isKindOfClass:[NSDictionary class]] ? value : nil;
+        if (![options[@"on"] isKindOfClass:[NSNumber class]]) return @"maintenance needs {on: true/false}";
+        NSString *message = [options[@"message"] isKindOfClass:[NSString class]] ? options[@"message"] : nil;
+        [[JeevesMaintenance sharedManager] setActive:[options[@"on"] boolValue] message:message];
     } else if ([command isEqualToString:@"brightness"]) {
         if (![value isKindOfClass:[NSNumber class]]) return @"brightness needs a value from 0 to 1";
         [idle userDidInteract]; // undims first, so the dimmer doesn't restore its own level afterwards

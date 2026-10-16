@@ -26,12 +26,17 @@ class FakeWallPad:
         }
         self.rooms = [{"roomId": "ROOM-1", "name": "Bedroom", "iconType": 4, "entityIds": ["light.bed"], "sortOrder": 0}]
         self.commands: list = []
+        self.supervised = True  # whether iOS lets the app start Guided Access
+        self.guided_access = False
+        self.guided_access_error = ""
+        self.maintenance = False
+        self.maintenance_message = ""
         self.pushes: list = []
         self.server: asyncio.base_events.Server | None = None
         self.port = 0
 
-    async def start(self) -> None:
-        self.server = await asyncio.start_server(self._handle, "127.0.0.1", 0)
+    async def start(self, host: str = "127.0.0.1") -> None:
+        self.server = await asyncio.start_server(self._handle, host, 0)
         self.port = self.server.sockets[0].getsockname()[1]
 
     async def stop(self) -> None:
@@ -42,7 +47,7 @@ class FakeWallPad:
         keys = ["HABaseURL", "HAAccessToken", "HABatteryReportingEnabled", "JeevesRooms", "HomeSensorIds",
                 "JeevesCardSettings", "JeevesWeatherSource", "JeevesWeatherEntityId", "JeevesWeatherTemperatureEntityId",
                 "JeevesWeatherReadingEntityIds", "JeevesIdleHomeTimeout", "JeevesIdleDimsWhenIdle", "JellyfinEnabled",
-                "JellyfinServerURL"]
+                "JellyfinServerURL", "JeevesGuidedAccessCode"]
         return {"keys": keys, "values": dict(self.defaults), "rooms": list(self.rooms)}
 
     def apply(self, snapshot: dict) -> None:
@@ -79,9 +84,22 @@ class FakeWallPad:
                                            "systemVersion": "9.3.5", "appVersion": "1.0", "appBuild": "1",
                                            "battery": 0.8, "batteryState": "charging", "brightness": 0.6,
                                            "dimmed": False, "idleSeconds": 30, "haConfigured": True,
-                                           "haConnected": True, "features": ["push", "pull", "status", "command", "rooms"]}}
+                                           "haConnected": True, "guidedAccess": self.guided_access,
+                                           "guidedAccessError": self.guided_access_error,
+                                           "maintenance": self.maintenance,
+                                           "maintenanceMessage": self.maintenance_message,
+                                           "features": ["push", "pull", "status", "command", "rooms", "guided_access", "maintenance"]}}
         elif rtype == "command":
             self.commands.append((payload.get("command"), payload.get("value")))
+            if payload.get("command") == "maintenance":
+                value = payload.get("value") or {}
+                self.maintenance = bool(value.get("on"))
+                self.maintenance_message = value.get("message", "") if self.maintenance else ""
+            if payload.get("command") == "guided_access":
+                if self.supervised:
+                    self.guided_access, self.guided_access_error = bool(payload.get("value")), ""
+                else:
+                    self.guided_access_error = "iOS didn't let Jeeves start Guided Access."
             body = {"ok": True}
         else:
             return {"v": 1, "type": "result", "error": "Unknown request"}

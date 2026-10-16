@@ -76,9 +76,17 @@ static NSString * const kCellID = @"FleetCell";
 }
 
 - (void)saveCode {
-    if (![self.codeField.text isEqualToString:[JeevesFleetSettings sharedSettings].fleetCode ?: @""]) {
-        [JeevesFleetSettings sharedSettings].fleetCode = self.codeField.text;
+    NSString *code = [self.codeField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if ([code isEqualToString:[JeevesFleetSettings sharedSettings].fleetCode ?: @""]) return;
+    if (code.length > 0 && code.length < JeevesFleetMinimumCodeLength) {
+        self.codeField.text = [JeevesFleetSettings sharedSettings].fleetCode;
+        [self showMessage:[NSString stringWithFormat:@"Use at least %lu characters. The fleet code protects the settings "
+                                                     @"iPads share, including the Home Assistant token.",
+                                                     (unsigned long)JeevesFleetMinimumCodeLength]
+                    title:@"Fleet Code Too Short"];
+        return;
     }
+    [JeevesFleetSettings sharedSettings].fleetCode = code;
 }
 
 - (BOOL)textFieldShouldReturn:(UITextField *)textField {
@@ -92,7 +100,7 @@ static NSString * const kCellID = @"FleetCell";
 
 - (BOOL)isReady {
     JeevesFleetSettings *settings = [JeevesFleetSettings sharedSettings];
-    return settings.enabled && settings.fleetCode.length > 0;
+    return settings.enabled && settings.hasUsableCode;
 }
 
 #pragma mark - Table
@@ -120,8 +128,8 @@ static NSString * const kCellID = @"FleetCell";
         return @"iPads with fleet sync on and the same fleet code can share settings. Settings are encrypted with the "
                @"fleet code, which also stops other devices from changing or reading them.\n\n"
                @"Shared: Home Assistant connection, rooms, Home cards, card names and sizes, Home weather, idle "
-               @"timeout and dimming, and the Jellyfin server.\n"
-               @"Not shared: Jellyfin sign-in and playback target, wake on motion, and the battery webhook ID "
+               @"timeout and dimming, the Guided Access unlock code, and the Jellyfin server.\n"
+               @"Not shared: Jellyfin sign-in and playback target, wake on motion, whether Guided Access is on, and the battery webhook ID "
                @"(each iPad keeps its own).";
     }
     return @"Tap an iPad to send it this iPad's settings or copy its settings here. iPads appear while Jeeves is open on them.";
@@ -188,7 +196,8 @@ static NSString * const kCellID = @"FleetCell";
 
     [self saveCode];
     if (![self isReady]) {
-        [self showMessage:@"Turn on fleet sync and set the fleet code first." title:@"Fleet Sync Is Off"];
+        [self showMessage:[NSString stringWithFormat:@"Turn on fleet sync and set a fleet code of at least %lu characters first.",
+                           (unsigned long)JeevesFleetMinimumCodeLength] title:@"Fleet Sync Is Off"];
         return;
     }
     if (indexPath.row < (NSInteger)peers.count) {

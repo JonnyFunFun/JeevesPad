@@ -33,7 +33,9 @@ function fill(el, ...children) {
 }
 
 async function api(path, opts = {}) {
-  const init = { method: opts.method || "GET", headers: {} };
+  // The header tells the app this request comes from this page (requests that change
+  // something are refused without it, so other sites can't make them)
+  const init = { method: opts.method || "GET", headers: { "X-Requested-With": "jeevespad" } };
   if (opts.body instanceof FormData) init.body = opts.body;
   else if (opts.body !== undefined) {
     init.body = JSON.stringify(opts.body);
@@ -95,13 +97,189 @@ async function loadEntities() {
   if (app.entities) return app.entities;
   if (!app.entitiesLoading) {
     app.entitiesLoading = api("entities").then((list) => {
+      for (const e of list) {
+        e.search = [e.name, e.entity_id, e.area, e.device, domainName(e.domain)].join(" ").toLowerCase();
+      }
       app.entities = list;
-      const dl = document.getElementById("entity-list");
-      dl.replaceChildren(...list.map((e) => h("option", { value: e.entity_id }, e.name)));
       return list;
     }).catch((e) => { app.entitiesLoading = null; toast(e.message, true); return []; });
   }
   return app.entitiesLoading;
+}
+
+// --- entity picker ---------------------------------------------------------------------
+
+const DOMAIN_NAMES = {
+  light: "Light", switch: "Switch", sensor: "Sensor", binary_sensor: "Binary sensor", script: "Script",
+  scene: "Scene", input_boolean: "Toggle helper", button: "Button", input_button: "Button helper", fan: "Fan",
+  cover: "Cover", climate: "Thermostat", lock: "Lock", media_player: "Media player", camera: "Camera",
+  vacuum: "Vacuum", weather: "Weather", automation: "Automation", select: "Select", input_select: "Dropdown helper",
+  number: "Number", input_number: "Number helper", person: "Person", device_tracker: "Device tracker",
+  alarm_control_panel: "Alarm panel", humidifier: "Humidifier", water_heater: "Water heater", valve: "Valve",
+  siren: "Siren", update: "Update", event: "Event", timer: "Timer", counter: "Counter", sun: "Sun", zone: "Zone",
+};
+function domainName(domain) { return DOMAIN_NAMES[domain] || domain.replace(/_/g, " "); }
+
+// Which entities each kind of picker offers
+const ENTITY_FILTERS = {
+  card: () => true,  // Jeeves can show any entity as a card
+  weather: (e) => e.domain === "weather",
+  temperature: (e) => e.domain === "sensor" && (e.device_class === "temperature" || /^°[CF]$|^K$/.test(e.unit)),
+  reading: (e) => e.domain === "sensor" || e.domain === "binary_sensor",
+};
+const MAX_RESULTS = 50;
+let pickerCount = 0;
+
+function findEntity(id) { return (app.entities || []).find((e) => e.entity_id === id); }
+
+// Entities matching a search: every word must appear in the name, entity ID, area,
+// device or type; best matches first
+function searchEntities(query, filter) {
+  const list = (app.entities || []).filter(ENTITY_FILTERS[filter] || ENTITY_FILTERS.card);
+  const q = query.trim().toLowerCase();
+  if (!q) return list.slice().sort((a, b) => a.name.localeCompare(b.name));
+  const terms = q.split(/\s+/);
+  const score = (e) => {
+    const name = e.name.toLowerCase();
+    if (name.startsWith(q)) return 0;
+    if (e.entity_id.startsWith(q) || e.entity_id.split(".")[1].startsWith(q)) return 1;
+    if (name.split(/[\s_-]+/).some((w) => w.startsWith(terms[0]))) return 2;
+    return 3;
+  };
+  return list.filter((e) => terms.every((t) => e.search.includes(t)))
+    .map((e) => [score(e), e]).sort((a, b) => a[0] - b[0] || a[1].name.localeCompare(b[1].name)).map(([, e]) => e);
+}
+
+// A searchable entity field. `filter` is a key of ENTITY_FILTERS; the chosen entity ID is
+// the element's `entityId`, and onChange(id) is called when it changes.
+function entityPicker({ value = "", filter = "card", placeholder = "Search by name, area or device", emptyText, label, onChange }) {
+  const id = `picker-${++pickerCount}`;
+  const wrap = h("div", { class: "picker" });
+  const input = h("input", { type: "text", role: "combobox", autocomplete: "off", spellcheck: "false",
+    "aria-autocomplete": "list", "aria-expanded": "false", "aria-controls": `${id}-list`, "aria-label": label || "Entity",
+    placeholder: emptyText || placeholder });
+  const clear = h("button", { type: "button", class: "picker-clear", "aria-label": "Clear", hidden: !value }, "✕");
+  const sub = h("div", { class: "picker-sub mono" });
+  const list = h("ul", { class: "picker-list", role: "listbox", id: `${id}-list`, hidden: true });
+  let results = [];
+  let active = -1;
+  wrap.entityId = value;
+
+  function showSelection() {
+    const e = findEntity(wrap.entityId);
+    input.value = wrap.entityId ? (e ? e.name : wrap.entityId) : "";
+    const missing = wrap.entityId && !e && app.entities;  // renamed or removed in Home Assistant?
+    sub.textContent = e ? [e.entity_id, e.area, e.device].filter(Boolean).join(" · ") : missing ? "Not found in Home Assistant" : "";
+    sub.classList.toggle("missing", !!missing);
+    clear.hidden = !wrap.entityId;
+  }
+
+  function choose(entityId) {
+    wrap.entityId = entityId;
+    close();
+    showSelection();
+    if (onChange) onChange(entityId);
+  }
+
+  function option(e, i) {
+    return h("li", { role: "option", id: `${id}-opt-${i}`, class: "picker-opt" + (i === active ? " active" : ""),
+      "aria-selected": i === active ? "true" : "false",
+      onmousedown: (ev) => { ev.preventDefault(); choose(e.entity_id); } },
+      h("div", { class: "opt-main" }, h("span", { class: "opt-name" }, e.name),
+        h("span", { class: "opt-state" }, [e.state, e.unit].filter(Boolean).join(" "))),
+      h("div", { class: "opt-sub" }, h("span", { class: "mono" }, e.entity_id),
+        [e.area, e.device].filter(Boolean).length > 0 && ` · ${[e.area, e.device].filter(Boolean).join(" · ")}`));
+  }
+
+  function render() {
+    if (!app.entities) {
+      fill(list, h("li", { class: "picker-note" }, "Loading entities…"));
+      return;
+    }
+    const shown = results.slice(0, MAX_RESULTS);
+    const typed = input.value.trim();
+    fill(list,
+      shown.map(option),
+      results.length === 0 && h("li", { class: "picker-note" },
+        /^[a-z_]+\.[a-z0-9_]+$/.test(typed) ? `Press Enter to use ${typed}` : "Nothing matches. Try another word, an area or a device."),
+      results.length > MAX_RESULTS && h("li", { class: "picker-note" },
+        `${results.length - MAX_RESULTS} more. Keep typing to narrow them down.`));
+    input.setAttribute("aria-activedescendant", active >= 0 ? `${id}-opt-${active}` : "");
+    const current = list.querySelector(".active");
+    if (current) current.scrollIntoView({ block: "nearest" });
+  }
+
+  function update() {
+    const selected = findEntity(wrap.entityId);
+    const query = selected && input.value === selected.name ? "" : input.value;
+    results = searchEntities(query, filter);
+    active = results.length ? 0 : -1;
+    render();
+  }
+
+  function open() {
+    list.hidden = false;
+    input.setAttribute("aria-expanded", "true");
+    update();
+    loadEntities().then(() => { if (!list.hidden) update(); showSelection(); });
+  }
+
+  function close() {
+    list.hidden = true;
+    input.setAttribute("aria-expanded", "false");
+    input.removeAttribute("aria-activedescendant");
+  }
+
+  input.addEventListener("focus", () => { input.select(); open(); });
+  input.addEventListener("input", () => { if (list.hidden) open(); else update(); });
+  input.addEventListener("blur", () => { close(); showSelection(); });
+  input.addEventListener("keydown", (ev) => {
+    if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+      ev.preventDefault();
+      if (list.hidden) { open(); return; }
+      const n = Math.min(results.length, MAX_RESULTS);
+      if (n) { active = (active + (ev.key === "ArrowDown" ? 1 : -1) + n) % n; render(); }
+    } else if (ev.key === "Enter") {
+      ev.preventDefault();
+      const typed = input.value.trim();
+      if (active >= 0 && results[active]) choose(results[active].entity_id);
+      else if (/^[a-z_]+\.[a-z0-9_]+$/.test(typed)) choose(typed);  // not in the list (e.g. not loaded)
+    } else if (ev.key === "Escape" && !list.hidden) {
+      ev.preventDefault();
+      ev.stopPropagation();  // don't close the sheet
+      close();
+      showSelection();
+    }
+  });
+  clear.addEventListener("click", () => { choose(""); input.focus(); });
+
+  showSelection();
+  if (value && !app.entities) loadEntities().then(showSelection);
+  return append(wrap, [h("div", { class: "picker-field" }, input, clear), sub, list]);
+}
+
+// An ordered list of entities (chips) with a picker to add more; `entityIds` holds the list
+function entityListPicker({ values = [], filter = "reading", addLabel = "Add a reading", onChange }) {
+  const wrap = h("div", { class: "picker-multi" });
+  wrap.entityIds = values.slice();
+  function draw() {
+    const changed = () => { draw(); if (onChange) onChange(wrap.entityIds); };
+    fill(wrap,
+      h("ul", { class: "chips" }, wrap.entityIds.map((entityId, i) => {
+        const e = findEntity(entityId);
+        return h("li", { class: "entity-chip" },
+          h("span", { class: "chip-text" }, h("span", {}, e ? e.name : entityId), e && h("span", { class: "mono muted" }, entityId)),
+          h("button", { type: "button", class: "btn icon small", "aria-label": `Move ${e ? e.name : entityId} up`, disabled: i === 0,
+            onclick: () => { [wrap.entityIds[i - 1], wrap.entityIds[i]] = [wrap.entityIds[i], wrap.entityIds[i - 1]]; changed(); } }, "↑"),
+          h("button", { type: "button", class: "btn icon small danger", "aria-label": `Remove ${e ? e.name : entityId}`,
+            onclick: () => { wrap.entityIds.splice(i, 1); changed(); } }, "✕"));
+      })),
+      entityPicker({ filter, label: addLabel, placeholder: `${addLabel}: search by name, area or device`,
+        onChange: (entityId) => { if (entityId && !wrap.entityIds.includes(entityId)) wrap.entityIds.push(entityId); changed(); } }));
+  }
+  draw();
+  if (!app.entities) loadEntities().then(draw);
+  return wrap;
 }
 
 function entityName(id) {
@@ -151,7 +329,7 @@ function renderPads() {
   if (list.length === 0) {
     return h("div", {}, toolbar, h("div", { class: "empty" },
       h("h2", {}, "No wallPads yet"),
-      h("p", {}, "wallPads show up here when Jeeves is running on them on this network."),
+      h("p", {}, "wallPads show up here when the Jeeves app is running on them on the local network."),
       h("p", {}, h("button", { class: "btn primary", onclick: () => switchTab("setup") }, "Set up an iPad"))));
   }
   return h("div", {}, toolbar, h("div", { class: "grid" }, list.map(padCard)));
@@ -181,6 +359,8 @@ function padCard(pad) {
   if (pad.online) chips.push(h("span", { class: "chip on" }, h("span", { class: "dot" }), "On the network"));
   else chips.push(h("span", { class: "chip" }, h("span", { class: "dot" }), "Not seen"));
   if (s.dimmed) chips.push(h("span", { class: "chip" }, "Dimmed"));
+  if (pad.online && s.guidedAccess) chips.push(h("span", { class: "chip" }, "Guided Access"));
+  if (pad.online && s.maintenance) chips.push(h("span", { class: "chip warn" }, h("span", { class: "dot" }), "Maintenance"));
   if (pad.online && s.haConfigured === false) chips.push(h("span", { class: "chip warn" }, h("span", { class: "dot" }), "Not set up"));
   else if (pad.online && s.haConnected === false) chips.push(h("span", { class: "chip warn" }, h("span", { class: "dot" }), "Home Assistant unreachable"));
 
@@ -199,7 +379,7 @@ function padCard(pad) {
     s.idleSeconds !== undefined && [h("dt", {}, "Last touched"), h("dd", {}, ago(s.idleSeconds) === "just now" ? "just now" : `${ago(s.idleSeconds)} ago`)]);
 
   let note = null;
-  if (pad.online && pad.sync_enabled === false) note = "Fleet sync is off on this iPad. Enrol it to manage its settings.";
+  if (pad.online && pad.sync_enabled === false) note = "Fleet sync is off on this iPad. Enroll it to manage its settings.";
   else if (pad.status_error) note = pad.status_error;
 
   const slider = canCommand && brightness !== null && h("label", { class: "brightness" }, "Brightness",
@@ -209,6 +389,8 @@ function padCard(pad) {
   const actions = h("div", { class: "actions" },
     canCommand && h("button", { class: "btn small", onclick: () => runCommand(pad, "identify") }, "Identify"),
     canCommand && h("button", { class: "btn small", onclick: () => runCommand(pad, "home") }, "Go Home"),
+    pad.online && features.includes("guided_access") && h("button", { class: "btn small",
+      onclick: (e) => setGuidedAccess(pad, !s.guidedAccess, e.target) }, s.guidedAccess ? "End Guided Access" : "Start Guided Access"),
     pad.online && h("button", { class: "btn small", onclick: () => openSettings(pad) }, "Settings"),
     pad.online && h("button", { class: "btn small", onclick: () => openDashboards(pad) }, "Dashboards"),
     h("button", { class: "btn small", onclick: () => openMaintenance(pad) }, "Maintenance"));
@@ -225,6 +407,16 @@ async function runCommand(pad, command, value) {
     toast(done[command] || "Done");
     if (command === "brightness") setTimeout(() => api(`wallpads/${encodeURIComponent(pad.id)}/refresh`, { method: "POST" }).then(loadState), 800);
   } catch (e) { toast(e.message, true); }
+}
+
+async function setGuidedAccess(pad, on, button) {
+  button.disabled = true;
+  button.textContent = on ? "Starting…" : "Ending…";
+  try {
+    await api(`wallpads/${encodeURIComponent(pad.id)}/guided-access`, { method: "POST", body: { on } });
+    toast(on ? `${pad.name} is in Guided Access` : `${pad.name} left Guided Access`);
+  } catch (e) { toast(e.message, true); }
+  await loadState();
 }
 
 async function addByAddress() {
@@ -277,9 +469,10 @@ async function openSettings(pad) {
     ha_token: h("input", { type: "password", autocomplete: "off", placeholder: v.connection.ha_token_set ? "Saved — enter a new token to replace it" : "Long-lived access token" }),
     battery: h("input", { type: "checkbox", checked: v.connection.battery_reporting }),
     w_source: select([["automatic", "First weather entity in Home Assistant"], ["entity", "A specific weather entity"], ["none", "None (sensors only)"]], v.weather.source),
-    w_entity: h("input", { list: "entity-list", value: v.weather.entity_id, placeholder: "weather.home" }),
-    w_temp: h("input", { list: "entity-list", value: v.weather.temperature_entity_id, placeholder: "Use the weather entity's temperature" }),
-    w_readings: h("textarea", { rows: 3, placeholder: "One sensor per line, e.g. sensor.outdoor_humidity" }, v.weather.reading_entity_ids.join("\n")),
+    w_entity: entityPicker({ value: v.weather.entity_id, filter: "weather", label: "Weather entity", placeholder: "Search weather entities" }),
+    w_temp: entityPicker({ value: v.weather.temperature_entity_id, filter: "temperature", label: "Temperature sensor",
+      emptyText: "The weather entity's temperature (or search temperature sensors)" }),
+    w_readings: entityListPicker({ values: v.weather.reading_entity_ids, filter: "reading" }),
     timeout: select(TIMEOUTS, v.idle.home_timeout),
     dims: h("input", { type: "checkbox", checked: v.idle.dims_when_idle }),
     jf_enabled: h("input", { type: "checkbox", checked: v.jellyfin.enabled }),
@@ -296,9 +489,10 @@ async function openSettings(pad) {
     h("label", { class: "check" }, f.battery, h("span", {}, "Report battery level to Home Assistant")),
     h("h3", {}, "Home weather"),
     h("label", { class: "field" }, h("span", {}, "Conditions and forecast from"), f.w_source),
-    h("label", { class: "field" }, h("span", {}, "Weather entity"), f.w_entity),
-    h("label", { class: "field" }, h("span", {}, "Temperature from"), f.w_temp),
-    h("label", { class: "field" }, h("span", {}, "Extra readings"), f.w_readings),
+    h("div", { class: "field" }, h("span", {}, "Weather entity"), f.w_entity),
+    h("div", { class: "field" }, h("span", {}, "Temperature from"), f.w_temp),
+    h("div", { class: "field" }, h("span", {}, "Extra readings"), f.w_readings,
+      h("small", {}, "Sensors shown as tiles under the current conditions, in this order.")),
     h("h3", {}, "When idle"),
     h("label", { class: "field" }, h("span", {}, "Go back to Home after"), f.timeout),
     h("label", { class: "check" }, f.dims, h("span", {}, "Dim the screen at twice that time")),
@@ -313,8 +507,8 @@ async function openSettings(pad) {
   save.onclick = async () => {
     const settings = {
       connection: { ha_url: f.ha_url.value, ha_token: f.ha_token.value, battery_reporting: f.battery.checked },
-      weather: { source: f.w_source.value, entity_id: f.w_entity.value.trim(), temperature_entity_id: f.w_temp.value.trim(),
-        reading_entity_ids: f.w_readings.value.split(/\s+/).map((s) => s.trim()).filter(Boolean) },
+      weather: { source: f.w_source.value, entity_id: f.w_entity.entityId, temperature_entity_id: f.w_temp.entityId,
+        reading_entity_ids: f.w_readings.entityIds },
       idle: { home_timeout: Number(f.timeout.value), dims_when_idle: f.dims.checked },
       jellyfin: { enabled: f.jf_enabled.checked, server_url: f.jf_url.value },
     };
@@ -342,7 +536,9 @@ async function openDashboards(pad) {
   catch (e) { toast(e.message, true); return; }
   await loadEntities();
   const dash = view.dashboards;
-  const model = { home: dash.home_cards.map((c) => ({ ...c })), rooms: dash.rooms.map((r) => ({ ...r, cards: r.cards.map((c) => ({ ...c })) })) };
+  let nextKey = 0;  // identifies a card's row while editing
+  const card = (c) => ({ ...c, key: ++nextKey });
+  const model = { home: dash.home_cards.map(card), rooms: dash.rooms.map((r) => ({ ...r, cards: r.cards.map(card) })) };
   const body = h("div", {});
   const others = onlinePads(pad.id);
   const also = others.map((p) => ({ pad: p, box: h("input", { type: "checkbox" }) }));
@@ -358,16 +554,20 @@ async function openDashboards(pad) {
     return h("div", { class: "cards" },
       cards.length > 0 && h("div", { class: "list-head" }, h("span", {}, "Entity"), h("span", {}, "Card name"), h("span", {}, "Size"), h("span", {})),
       cards.map((card, i) => h("div", { class: "card-row" },
-        h("input", { list: "entity-list", value: card.entity_id, placeholder: "light.kitchen", "aria-label": "Entity",
-          oninput: (e) => { card.entity_id = e.target.value.trim(); } }),
-        h("input", { value: card.name, placeholder: entityName(card.entity_id) || "Home Assistant's name", "aria-label": "Card name",
-          oninput: (e) => { card.name = e.target.value; } }),
+        entityPicker({ value: card.entity_id, filter: "card", label: "Entity",
+          onChange: (entityId) => {
+            card.entity_id = entityId;
+            const nameField = document.getElementById(`card-name-${card.key}`);
+            if (nameField) nameField.placeholder = entityName(entityId) || "Home Assistant's name";
+          } }),
+        h("input", { id: `card-name-${card.key}`, value: card.name, placeholder: entityName(card.entity_id) || "Home Assistant's name",
+          "aria-label": "Card name", oninput: (e) => { card.name = e.target.value; } }),
         select(SIZES, card.size, { "aria-label": "Size", onchange: (e) => { card.size = e.target.value; } }),
         h("div", { class: "moves" },
           h("button", { class: "btn icon small", "aria-label": "Move up", onclick: () => move(cards, i, -1) }, "↑"),
           h("button", { class: "btn icon small", "aria-label": "Move down", onclick: () => move(cards, i, 1) }, "↓"),
           h("button", { class: "btn icon small danger", "aria-label": "Remove card", onclick: () => { cards.splice(i, 1); draw(); } }, "✕")))),
-      h("div", {}, h("button", { class: "btn small", onclick: () => { cards.push({ entity_id: "", name: "", size: "small" }); draw(); } }, "Add a card")));
+      h("div", {}, h("button", { class: "btn small", onclick: () => { cards.push(card({ entity_id: "", name: "", size: "small" })); draw(); } }, "Add a card")));
   }
 
   function draw() {
@@ -436,7 +636,7 @@ function openMaintenance(pad) {
     } catch (e) { if (e.message !== "Cancelled") toast(e.message, true); }
   }
 
-  async function enrol() {
+  async function enroll() {
     const source = onlinePads(pad.id).length ? prompt(
       "Also copy settings from another wallPad? Type its name, or leave empty to only add this iPad to the fleet:", "") : "";
     if (source === null) return;
@@ -447,7 +647,7 @@ function openMaintenance(pad) {
       settingsSource = `copy:${from.id}`;
     }
     try {
-      const job = await withPassword(pad, (password) => api(`wallpads/${id}/enrol`, { method: "POST", body: { password, settings_source: settingsSource } }));
+      const job = await withPassword(pad, (password) => api(`wallpads/${id}/enroll`, { method: "POST", body: { password, settings_source: settingsSource } }));
       showJob(job, out);
     } catch (e) { if (e.message !== "Cancelled") toast(e.message, true); }
   }
@@ -457,12 +657,16 @@ function openMaintenance(pad) {
     catch (e) { toast(e.message, true); }
   }
 
+  const status = pad.status || {};
+  const maintenanceSection = pad.online && (status.features || []).includes("maintenance") && maintenancePanel(pad, status);
+
   const body = h("div", {},
+    maintenanceSection,
     h("p", { class: "lede" }, "These actions use SSH, so they work even when Jeeves isn't running. They use the root password from the app's configuration unless this wallPad has its own."),
     h("div", { class: "toolbar" },
       h("button", { class: "btn", onclick: () => ssh("restart_app", `Restarted Jeeves on ${pad.name}`) }, "Restart Jeeves"),
       h("button", { class: "btn", onclick: updateApp }, "Install the current app package"),
-      h("button", { class: "btn", onclick: enrol }, "Enrol in this fleet"),
+      h("button", { class: "btn", onclick: enroll }, "Enroll in this fleet"),
       h("button", { class: "btn", onclick: () => ssh("logs") }, "Show logs"),
       h("button", { class: "btn", onclick: () => ssh("check") }, "Check the iPad")),
     h("div", { class: "toolbar" },
@@ -485,6 +689,28 @@ function openMaintenance(pad) {
         try { await api(`wallpads/${id}`, { method: "DELETE" }); closeSheet(); } catch (e) { toast(e.message, true); } } }, "Remove from list")));
 
   const closeSheet = openSheet(`${pad.name}: maintenance`, body, null, { lock: false });
+}
+
+function maintenancePanel(pad, status) {
+  const on = !!status.maintenance;
+  const message = h("textarea", { rows: 2, maxlength: 500, "aria-label": "Maintenance notice",
+    placeholder: "This panel is being looked after and will be back shortly." }, on ? status.maintenanceMessage || "" : "");
+  const button = h("button", { class: on ? "btn" : "btn primary", onclick: async () => {
+    if (!on && !confirm(`Lock ${pad.name}? It shows the maintenance notice and can't be used until you end maintenance mode here (or someone enters the unlock code at the panel).`)) return;
+    button.disabled = true;
+    try {
+      await api(`wallpads/${encodeURIComponent(pad.id)}/maintenance`, { method: "POST", body: { on: !on, message: message.value } });
+      toast(on ? `${pad.name} is back in use` : `${pad.name} is locked for maintenance`);
+      document.getElementById("scrim").click();  // close, so the card shows the new state
+    } catch (e) { toast(e.message, true); button.disabled = false; }
+  } }, on ? "End maintenance mode" : "Lock for maintenance");
+  return h("section", { class: "maintenance-mode" + (on ? " on" : "") },
+    h("h3", {}, on ? "Maintenance mode is on" : "Maintenance mode"),
+    h("p", { class: "muted" }, on
+      ? "The panel shows the notice below and can't be used. End maintenance mode to unlock it."
+      : "Locks the panel behind a full-screen notice until you turn it off. At the panel, holding the notice for 5 seconds asks for the unlock code (Fleet tab); without one, only Home Assistant can end it."),
+    h("div", { class: "field" }, h("span", {}, "Notice"), message),
+    h("div", { class: "toolbar" }, button));
 }
 
 // --- jobs ------------------------------------------------------------------------------
@@ -548,7 +774,7 @@ function renderSetup() {
       h("h3", {}, "Before you start"),
       h("ol", { class: "steps" },
         h("li", {}, "Jailbreak the iPad (Jeeves is made for iOS 9.3.5)."),
-        h("li", {}, "In Cydia, install OpenSSH, UIKit Tools and Open."),
+        h("li", {}, "In Cydia, install OpenSSH. UIKit Tools and Open are installed automatically if they're missing (the iPad needs internet access)."),
         h("li", {}, "Connect it to the same network as Home Assistant and note its IP address (Settings → Wi-Fi → ⓘ)."),
         h("li", {}, packageNote(st.package))),
       h("div", { class: "row" },
@@ -671,11 +897,50 @@ function renderFleet() {
         : "This code is set in the app's configuration."),
       h("h3", {}, "Adding wallPads that already run Jeeves"),
       h("ol", { class: "steps" },
-        h("li", {}, "Over SSH: open the wallPad's Maintenance and choose Enrol in this fleet. Jeeves restarts with fleet sync on and this code."),
+        h("li", {}, "Over SSH: open the wallPad's Maintenance and choose Enroll in this fleet. Jeeves restarts with fleet sync on and this code."),
         h("li", {}, "Or on the iPad: Settings → Fleet, turn on Fleet sync and enter this code."))),
+    guidedAccessPanel(st),
     h("section", { class: "panel" }, h("h2", {}, "Copy settings between wallPads"),
       h("p", { class: "lede" }, "Make one wallPad the model for others."),
       h("button", { class: "btn", disabled: pads().length < 2, onclick: () => openCopySheet() }, "Choose wallPads…")));
+}
+
+function guidedAccessPanel(st) {
+  const code = h("input", { type: "password", inputmode: "numeric", autocomplete: "off", "aria-label": "Unlock code",
+    placeholder: st.guided_access_code_set ? "Saved — enter a new code to replace it" : "Digits, e.g. 4826" });
+  const status = h("p", { class: "muted" }, st.guided_access_code_set
+    ? "An unlock code is set. wallPads you set up get it automatically."
+    : "No unlock code: anyone at a wallPad can end Guided Access in Jeeves.");
+
+  async function save(value, button) {
+    button.disabled = true;
+    try {
+      const res = await api("guided-access-code", { method: "POST", body: { code: value } });
+      const entries = Object.entries(res.results);
+      const failed = entries.filter(([, err]) => err);
+      reportCopies(res.results);
+      st.guided_access_code_set = !!value;
+      code.value = "";
+      status.textContent = value ? "An unlock code is set. wallPads you set up get it automatically."
+        : "No unlock code: anyone at a wallPad can end Guided Access in Jeeves.";
+      toast(`${value ? "Set" : "Removed"} the unlock code on ${entries.length - failed.length} of ${entries.length} wallPads`, failed.length > 0);
+    } catch (e) { toast(e.message, true); }
+    button.disabled = false;
+  }
+  const set = h("button", { class: "btn primary", onclick: (e) => {
+    if (!code.value.trim()) { toast("Enter a code first", true); return; }
+    save(code.value.trim(), e.target);
+  } }, "Set on all wallPads");
+  const remove = h("button", { class: "btn danger", onclick: (e) => {
+    if (confirm("Remove the unlock code from every wallPad? Anyone at a wallPad could then end Guided Access.")) save("", e.target);
+  } }, "Remove code");
+
+  return h("section", { class: "panel" }, h("h2", {}, "Guided Access"),
+    h("p", { class: "lede" }, "Guided Access keeps a wallPad in Jeeves. Start or end it from each wallPad's card. To end it at the panel, people open Jeeves's Settings → Guided Access and enter this code."),
+    h("label", { class: "field" }, h("span", {}, "Unlock code"), code),
+    status,
+    h("div", { class: "toolbar" }, set, st.guided_access_code_set && remove),
+    h("p", { class: "muted" }, "Jeeves can only start Guided Access on a supervised iPad whose configuration profile allows it: in the profile's Restrictions, list com.jeeves.Jeeves under autonomousSingleAppModePermittedAppIDs (the apps allowed to enter Single App Mode by themselves)."));
 }
 
 function openCopySheet() {

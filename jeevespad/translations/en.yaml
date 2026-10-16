@@ -2,9 +2,9 @@ configuration:
   fleet_code:
     name: Fleet code
     description: >-
-      The fleet code every wallPad uses to encrypt settings (Settings → Fleet on the
+      The fleet code every wallPad uses to encrypt its settings (Settings → Fleet on the
       iPad). Leave empty to have the app generate one; it's shown on the Fleet page,
-      and wallPads set up or enrolled by the app get it automatically.
+      and wallPads set up or enrolled by the app set it automatically.
   ssh_password:
     name: Root password
     description: >-
@@ -26,6 +26,12 @@ configuration:
     description: >-
       IP addresses or host names of wallPads to manage over SSH even when Bonjour
       can't find them (for example on another VLAN).
+  listen_on_all_addresses:
+    name: Listen on all addresses
+    description: >-
+      Leave this off. The app normally only accepts connections from Home Assistant
+      itself. Turn it on only if the wallPads page doesn't load; requests are still
+      only accepted from Home Assistant.
   app_package_url:
     name: Jeeves app package URL
     description: >-

@@ -17,6 +17,13 @@ extern NSString * const JeevesFleetConfigurationDidChangeNotification;
 @property (nonatomic, assign) BOOL enabled;
 @property (nonatomic, copy, nullable) NSString *fleetCode; // must match on every iPad in the fleet
 
+// Shortest fleet code accepted: it encrypts settings that include the Home Assistant token,
+// and a captured request could be used to guess a short code offline
+extern const NSUInteger JeevesFleetMinimumCodeLength;
+
+// A fleet code is set and long enough to use
+@property (nonatomic, readonly) BOOL hasUsableCode;
+
 + (NSArray<NSString *> *)sharedKeys;
 
 // Shared settings as a property-list dictionary: {keys, values, rooms}. `rooms` repeats
@@ -28,7 +35,7 @@ extern NSString * const JeevesFleetConfigurationDidChangeNotification;
 - (BOOL)applySnapshot:(NSDictionary *)snapshot fromDevice:(NSString *)deviceName;
 
 // Applies (then deletes) ~/Library/Jeeves/provision.plist, which the JeevesPad Manager
-// app writes over SSH when it installs or enrols this iPad: {fleetEnabled, fleetCode,
+// app writes over SSH when it installs or enrolls this iPad: {fleetEnabled, fleetCode,
 // settings (a snapshot), from}. Call at launch, before the UI reads any settings.
 - (void)applyProvisioningFileIfPresent;
 

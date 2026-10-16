@@ -21,6 +21,8 @@ import aiohttp
 
 DEFAULT_URL = "https://github.com/JonnyFunFun/JeevesPad/releases/latest/download/Jeeves.ipa"
 MAX_SIZE = 200 * 1024 * 1024
+MAX_UNPACKED = 1024 * 1024 * 1024  # Jeeves.app is a few MB; refuse "zip bombs"
+MAX_FILES = 20000
 APP_DIR_NAME = "Jeeves.app"
 
 
@@ -63,10 +65,15 @@ class Package:
         os.makedirs(self.extract_dir)
         root = os.path.realpath(self.extract_dir)
         with zipfile.ZipFile(self.ipa_path) as archive:
-            for member in archive.infolist():
+            members = archive.infolist()
+            if len(members) > MAX_FILES or sum(m.file_size for m in members) > MAX_UNPACKED:
+                raise PackageError("That package is far too large to be Jeeves")
+            for member in members:
                 target = os.path.realpath(os.path.join(root, member.filename))
                 if not target.startswith(root + os.sep):
                     raise PackageError(f"The package contains an unsafe path: {member.filename}")
+                if (member.external_attr >> 16) & 0o170000 == 0o120000:
+                    raise PackageError(f"The package contains a symbolic link: {member.filename}")
             archive.extractall(root)
         info_plist = os.path.join(self.app_dir, "Info.plist")
         if not os.path.exists(info_plist):
@@ -119,6 +126,8 @@ class Package:
         return meta
 
     async def download(self, url: str) -> dict:
+        if not url.lower().startswith(("https://", "http://")):
+            raise PackageError("The package address must start with https:// or http://")
         timeout = aiohttp.ClientTimeout(total=300)
         try:
             async with aiohttp.ClientSession(timeout=timeout) as session:

@@ -9,6 +9,8 @@
 NSString * const JeevesFleetSettingsAppliedNotification = @"JeevesFleetSettingsAppliedNotification";
 NSString * const JeevesFleetConfigurationDidChangeNotification = @"JeevesFleetConfigurationDidChangeNotification";
 
+const NSUInteger JeevesFleetMinimumCodeLength = 8;
+
 static NSString * const kDefaultsFleetEnabled = @"JeevesFleetEnabled";
 static NSString * const kDefaultsFleetCode    = @"JeevesFleetCode";
 static NSString * const kSnapshotKeys   = @"keys";   // keys the sender knows about
@@ -51,6 +53,10 @@ static NSString * const kProvisioningPath = @"Library/Jeeves/provision.plist"; /
     [[NSNotificationCenter defaultCenter] postNotificationName:JeevesFleetConfigurationDidChangeNotification object:self];
 }
 
+- (BOOL)hasUsableCode {
+    return self.fleetCode.length >= JeevesFleetMinimumCodeLength;
+}
+
 + (NSArray<NSString *> *)sharedKeys {
     return @[
         // Home Assistant connection
@@ -61,6 +67,8 @@ static NSString * const kProvisioningPath = @"Library/Jeeves/provision.plist"; /
         @"JeevesWeatherSource", @"JeevesWeatherEntityId", @"JeevesWeatherTemperatureEntityId", @"JeevesWeatherReadingEntityIds",
         // Idle behaviour (wake-on-motion is per-device: it needs camera permission on each iPad)
         @"JeevesIdleHomeTimeout", @"JeevesIdleDimsWhenIdle",
+        // Code that ends Guided Access in Jeeves (whether it's on is per-device)
+        @"JeevesGuidedAccessCode",
         // Jellyfin server (sign-in tokens are tied to each device, so each iPad signs in itself)
         @"JellyfinEnabled", @"JellyfinServerURL",
     ];

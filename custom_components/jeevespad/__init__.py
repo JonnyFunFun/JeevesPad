@@ -13,7 +13,7 @@ from .api import JeevesPadClient
 from .const import CONF_API_KEY
 from .coordinator import JeevesPadConfigEntry, JeevesPadCoordinator
 
-PLATFORMS = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.NUMBER, Platform.SENSOR]
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.NUMBER, Platform.SENSOR, Platform.SWITCH]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: JeevesPadConfigEntry) -> bool:

@@ -1,5 +1,5 @@
 name: JeevesPad Manager
-version: "0.1.1"
+version: "0.1.2"
 slug: jeevespad
 description: >-
   Manage every Jeeves wall panel (wallPad) from Home Assistant: status, settings,
@@ -31,6 +31,7 @@ backup_exclude:
 options:
   ssh_password: alpine
   extra_hosts: []
+  listen_on_all_addresses: false
 schema:
   fleet_code: "password?"
   ssh_password: password
@@ -39,3 +40,4 @@ schema:
   extra_hosts:
     - str
   app_package_url: "url?"
+  listen_on_all_addresses: bool

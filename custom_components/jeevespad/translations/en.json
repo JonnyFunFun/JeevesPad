@@ -25,24 +25,56 @@
   },
   "entity": {
     "binary_sensor": {
-      "online": { "name": "Jeeves running" },
-      "charging": { "name": "Charging" },
-      "dimmed": { "name": "Screen dimmed" },
-      "ha_connected": { "name": "Home Assistant connection" }
+      "online": {
+        "name": "Jeeves running"
+      },
+      "charging": {
+        "name": "Charging"
+      },
+      "dimmed": {
+        "name": "Screen dimmed"
+      },
+      "ha_connected": {
+        "name": "Home Assistant connection"
+      }
     },
     "sensor": {
-      "battery": { "name": "Battery" },
-      "idle_time": { "name": "Time since last touch" }
+      "battery": {
+        "name": "Battery"
+      },
+      "idle_time": {
+        "name": "Time since last touch"
+      }
     },
     "number": {
-      "brightness": { "name": "Screen brightness" }
+      "brightness": {
+        "name": "Screen brightness"
+      }
     },
     "button": {
-      "identify": { "name": "Identify" },
-      "go_home": { "name": "Go to Home" },
-      "wake": { "name": "Wake screen" },
-      "reload": { "name": "Reload screen" },
-      "restart_app": { "name": "Restart Jeeves" }
+      "identify": {
+        "name": "Identify"
+      },
+      "go_home": {
+        "name": "Go to Home"
+      },
+      "wake": {
+        "name": "Wake screen"
+      },
+      "reload": {
+        "name": "Reload screen"
+      },
+      "restart_app": {
+        "name": "Restart Jeeves"
+      }
+    },
+    "switch": {
+      "guided_access": {
+        "name": "Guided Access"
+      },
+      "maintenance": {
+        "name": "Maintenance mode"
+      }
     }
   }
 }

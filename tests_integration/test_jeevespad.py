@@ -16,7 +16,8 @@ PADS = [{
     "id": "abcd1234", "name": "Kitchen", "online": True, "host": "10.0.0.5", "app_version": "1.0",
     "model": "iPad2,5", "system_version": "9.3.5", "battery": 0.8, "battery_state": "charging",
     "brightness": 0.6, "dimmed": False, "idle_seconds": 90, "ha_connected": True,
-    "features": ["status", "command"], "status_error": None,
+    "features": ["status", "command", "guided_access", "maintenance"], "status_error": None, "guided_access": False,
+    "maintenance": False,
 }]
 DATA = {CONF_HOST: "127.0.0.1", CONF_PORT: 41234, CONF_API_KEY: "key"}
 CLIENT = "custom_components.jeevespad.api.JeevesPadClient"
@@ -45,8 +46,11 @@ async def test_entities_and_actions(hass: HomeAssistant) -> None:
     entry.add_to_hass(hass)
     command = AsyncMock()
     ssh = AsyncMock()
+    guided = AsyncMock()
+    maintenance = AsyncMock()
     with patch(f"{CLIENT}.wallpads", AsyncMock(return_value=PADS)), patch(f"{CLIENT}.command", command), \
-            patch(f"{CLIENT}.ssh_action", ssh):
+            patch(f"{CLIENT}.ssh_action", ssh), patch(f"{CLIENT}.guided_access", guided), \
+            patch(f"{CLIENT}.maintenance", maintenance):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
@@ -69,3 +73,12 @@ async def test_entities_and_actions(hass: HomeAssistant) -> None:
         command.assert_awaited_with("abcd1234", "home")
         await hass.services.async_call("button", "press", {"entity_id": "button.kitchen_restart_jeeves"}, blocking=True)
         ssh.assert_awaited_with("abcd1234", "restart_app")
+
+        assert hass.states.get("switch.kitchen_guided_access").state == "off"
+        await hass.services.async_call("switch", "turn_on", {"entity_id": "switch.kitchen_guided_access"}, blocking=True)
+        guided.assert_awaited_with("abcd1234", True)
+        assert hass.states.get("switch.kitchen_guided_access").state == "on"
+
+        await hass.services.async_call("switch", "turn_on", {"entity_id": "switch.kitchen_maintenance_mode"}, blocking=True)
+        maintenance.assert_awaited_with("abcd1234", True)
+        assert hass.states.get("switch.kitchen_maintenance_mode").state == "on"
